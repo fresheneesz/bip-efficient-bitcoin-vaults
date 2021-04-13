@@ -1,7 +1,7 @@
 ```
 BIP: BIP-Efficient-Bitcoin-Vaults
   Layer: Consensus (soft fork)
-  Title: Efficient Bitcoin Vaults using OP_CONSTRAINDESTINATION, OP_BEFORESEQUENCE, and  OP_PUSHOUTPUTDATA
+  Title: Efficient Bitcoin Vaults
   Author: Billy Tetrud <bitetrudpublic@gmail.com>
           Looking for co-authors.
   Comments-Summary: TBD
