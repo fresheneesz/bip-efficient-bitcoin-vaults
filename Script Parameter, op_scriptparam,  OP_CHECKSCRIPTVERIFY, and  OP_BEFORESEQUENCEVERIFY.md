@@ -24,10 +24,7 @@ It probably makes sense to eventually split this into one BIP per opcode.
 
 ### Option A
 
-Option A creates 3 new opcodes by redefining OP_SUCCESSx opcodes. The downsides are
-
-* the extra OP_DROPs that are needed,
-* the extra transaction size necessary to spend a transaction that has a non-empty output stack, which comes from the extra values necessary for the spender to add into the scriptSig in order to spend in comparison to Option A. 
+Option A creates 3 new opcodes by redefining taproot OP_SUCCESSx opcodes. These are more efficient than their option B counterparts.
 
 #### Additional transaction output fields
 
@@ -166,7 +163,7 @@ A Bitcoin Vault is a wallet construct that uses time-delayed transactions to all
 
 #### Bitcoin Vault with OP_CHECKTEMPLATEVERIFY
 
-OP_CHECKTEMPLATEVERIFY specified in [BIP 119](https://github.com/bitcoin/bips/blob/master/bip-0119.mediawiki#Committing_to_the_Number_of_Outputs) allows for creating Bitcoin vaults of the following form:
+OP_CHECKTEMPLATEVERIFY specified in [BIP 119](https://github.com/bitcoin/bips/blob/master/bip-0119.mediawiki) allows for creating [wallet vaults}(https://utxos.org/uses/vaults/) of the following form:
 
 Let's say you construct two addresses, each with their own script.
 
@@ -193,13 +190,13 @@ A. Sending to a transaction normally requires 2 transactions (assuming Address A
 
 B. An attacker who has compromised `key2` can still steal funds if they patiently wait for a transaction to come through, as mentioned in ["Custody Protocols Using Bitcoin Vaults"](https://arxiv.org/pdf/2005.11776.pdf) by Swambo et al.
 
-C. [Footguns related to address reuse.](https://github.com/bitcoin/bips/blob/master/bip-0119.mediawiki#forwarding-addresses)
+C. Outputs can only be sent one at a time - they cannot be combined other outputs from the same vault, nor any other output.
 
-Reused addresses can lead to loss of funds. If an outputs constrained by op_ctv are created for to the same address, 
+D. [Footguns related to address reuse and incorrect receipt amounts.](https://github.com/bitcoin/bips/blob/master/bip-0119.mediawiki#forwarding-addresses)
 
 #### A more efficient Bitcoin Vault using the proposed new opcodes
 
-By using all these opcodes together, these two issues can be eliminated in a more effective setup:
+By using OP_DC, OP_BS, and OP_POSS together, these issues can be eliminated in a more effective setup.
 
 Let's say you construct `IntermediateAddress` which has the following spend paths:
 
@@ -211,7 +208,17 @@ Then construct an `Address A` with the following spend paths:
 1. Can be spent by `key1`, to ``IntermediateAddress` (or a similar change address). The fee must be less than some multiple of the median fee of the last 30 blocks.
 2. Can be spent by `key1` + `key2`, without waiting for any time-lock, to any address.
 
-The couple issues above are eliminated. Normal spending requires only 1 transaction, and funds cannot be stolen if only 1 of [`key1`, `key2`] are compromised. All keys must be compromised to steal funds.
+The couple issues above are eliminated. This can be used to create highly redundant, highly secure wallets like [this one](https://github.com/fresheneesz/TordlWalletProtocols/blob/master/experimental/singleWalletProtocols/Time-locked-3-Seed-Cold-Wallet.md).
+
+* Spending requires only a single transaction.
+* Funds cannot be stolen if only 1 of [`key1`, `key2`] are compromised. All keys must be compromised to steal funds.
+* Vault outputs can be used in any combination, with each other, and with arbitrary other outputs. 
+* Arbitrary amounts can be sent to and from the vaults, so there are no footguns related to address reuse or incorrect receipt amounts.
+
+The scripts below define a bitcoin vault that nearly has usage parity with a normal bitcoin address. The only situations where this kind of wallet vault can't be used in a transaction are:
+
+* Situations where the transaction must finalize before the wallet vault's timeout, for example situations where a subsequent transaction is expected to be possible after 6 confirmations. 
+* Situations where the receiver doesn't recognize the wallet vault construct. 
 
 #### Simple Script for Example Bitcoin Vault - Option A
 
@@ -457,18 +464,6 @@ OP_DC and OP_CD can both be used for the same purpose.
 
 TBD
 
-## Considerations
-
-#### Single-transaction receiving
-
-In order for the receiver to be convinced they have actually received the coins from the transaction, they must be able to verify that their address is the only one that has valid spend paths for the output, now and in the future. To do this, the recipient must be able to see the entire script that `Destination` has. If it isn't on the blockchain then they need to be sent the full script by the transaction sender.
-
-#### Recovery with static backups
-
-The bitcoin vaults that can be created with these opcodes are designed so that coins can be sent to an arbitrary external address in a single transaction. After waiting the time-out period, a receiver can treat the output as their own indefinitely. A normal transaction that sends someone money can be recovered just using a seed and scanning the blockchain for transactions that can be spent by the keys that seed can generate. The vaults created with the above scripts can also do this, but require a slightly different mechanism.
-
-As long as the bitcoin vault scripts used are standardized and built into the software the user is using, all the information needed to recover transactions sent to a receiver can be generated from the receiver's seed or found on the blockchain. Software that is syncing the blockchain need only check for outputs who's output stack contains one of the seeds that can be generated from the receiver's seed. When the software finds an output like this, the script can be generated using the two sender public keys exposed when the sender spent the input that created the output. If the resulting script matches, then the user's software can count it amongst the user's funds (as long as the wait-time has passed). A similar process can be used by the sender to recover change outputs.
-
 ## Rationale
 
 #### OP_BEFORESEQUENCE and OP_BEFORESEQUENCEVERIFY
@@ -493,19 +488,39 @@ OP_DC and OP_CD both solve the half-spend problem by ensuring that the constrain
 
 These opcodes provide a way to pass data from the scriptSig used to spend an input to the created output. In the context of wallet vaults, this allows the destination to both be unknown at the time the wallet vault is created and at the same time, be able to commit to that destination with a single transactions. With OP_CTV by contrast, the destination is not committed to when sending coins from the vault, and a second transaction must be made that chooses the destination. 
 
-### Design Tradeoffs and Risks
+## Considerations
 
-#### OP_BEFORESEQUENCE and OP_BEFORESEQUENCEVERIFY transaction expiry handling
+#### Single-transaction receiving
+
+In order for the receiver to be convinced they have actually received the coins from the transaction, they must be able to verify that their address is the only one that has valid spend paths for the output, now and in the future. To do this, the recipient must be able to see the entire script that `Destination` has. If it isn't on the blockchain then they need to be sent the full script by the transaction sender.
+
+#### Recovery with static backups
+
+The bitcoin vaults that can be created with these opcodes are designed so that coins can be sent to an arbitrary external address in a single transaction. After waiting the time-out period, a receiver can treat the output as their own indefinitely. A normal transaction that sends someone money can be recovered just using a seed and scanning the blockchain for transactions that can be spent by the keys that seed can generate. The vaults created with the above scripts can also do this, but require a slightly different mechanism.
+
+As long as the bitcoin vault scripts used are standardized and built into the software the user is using, all the information needed to recover transactions sent to a receiver can be generated from the receiver's seed or found on the blockchain. Software that is syncing the blockchain need only check for outputs who's output stack contains one of the seeds that can be generated from the receiver's seed. When the software finds an output like this, the script can be generated using the two sender public keys exposed when the sender spent the input that created the output. If the resulting script matches, then the user's software can count it amongst the user's funds (as long as the wait-time has passed). A similar process can be used by the sender to recover change outputs.
+
+#### Mempool handling
 
 Because OP_BS and OP_BSV cause transactions to potentially expire in a new way, miners will need to take this into account when updating their mempool. An efficient way to do this would be to keep a data structure that maps block height to transactions that will expire at that block height. Upon admission to the mempool, a miner would check the transaction for an OP_BEFORESEQUENCEVERIFY requirement during validation of the transaction and would write a record of the transaction into the data structure (the map). On each newly mined block, each miner would check the map for transactions that expire upon that block and remove them from the mempool. This should be a fairly light data structure, requiring only an integer mapping to a list of pointers. This should also be a fast operation to insert into the map upon validation of each transaction, and a fast operation to evaluate on each new block. 
 
+### Design Tradeoffs and Risks
+
+#### OP_BS and OP_BSV transaction expiry
+
+Objections have been given for any possibility for transactions to expire. Satoshi said the following [here](https://bitcointalk.org/index.php?topic=1786.msg22119#msg22119):
+
 > In the event of a block chain reorg after a segmentation, transactions need to be able to get into the chain in a later block. The transaction and all its dependents would become invalid. This wouldn't be fair to later owners of the coins who weren't involved in the time limited transaction.
 
-If a person waited for the standard 6 blocks before accepting a transaction as confirmed, there should be no significantly likely scenario where any finalized transaction needs to be reverted. If 6 blocks is indeed a safe threshold for finalization, then any transaction that has 5 or fewer confirmations should be considered fair game for reversal. I don't agree that this is "unfair".
+However, if a person waited for the standard 6 blocks before accepting a transaction as confirmed, there should be no significantly likely scenario where any finalized transaction needs to be reverted. If 6 blocks is indeed a safe threshold for finalization, then any transaction that has 5 or fewer confirmations should be considered fair game for reversal. It seems unreasonable to call this "unfair", in fact it is rather the standard assumption. 
 
-I have been told by people that expiring spend paths have been argued against in the past. One of the reasons given was mempool handling issues, which I addressed in the above paragraph. The people I talked to didn't know details. I asked a question about this [on the Bitcoin stack exchange](https://bitcoin.stackexchange.com/questions/96366/what-are-the-reasons-to-avoid-spend-paths-that-become-invalid-over-time-without) but haven't gotten any answers. I would be very curious to know what other arguments against doing this there are. 
+Another reason I heard of was mempool handling issues, which I addressed in the "Mempool handling" Considerations section above. 
 
-#### Fungibility Risks
+I asked a question about this [on the Bitcoin stack exchange](https://bitcoin.stackexchange.com/questions/96366/what-are-the-reasons-to-avoid-spend-paths-that-become-invalid-over-time-without) but haven't gotten any answers. I would be very curious to know what other arguments against doing this there are. 
+
+Without some ability for spend paths to expire, there is fundamentally no way to structure wallet vaults in a way where spending can be done in a single step. 
+
+####  Fungibility Risks with OP_DC and OP_CD
 
 With OP_DC/CD, there is the possibility of creating covenants with unbounded chains of constraints. This could be used to put permanent restrictions on particular coins. However, its already possible to permanently restrict coins. A multisig setup could be created where the coins can only be spent if a particular key approves. I don't see much of a reason to prevent people from doing this kind of thing with their own money. Restricting its use can generally only reduce the value of the coins, so its similar to provably burning coins. 
 
