@@ -1,0 +1,16 @@
+https://siminchen.github.io/bitcoinIDE/build/editor.html#
+
+# CHECKSIG
+OP_2DROP 1
+
+# CHECKSIGADD
+op_drop 2 op_add op_nip
+
+# CHECKMULTISIGVERIFY
+
+
+# verifyPublicKey(..., ...)
+OP_OVER 
+OP_SHA256 
+OP_RIPEMD160 
+OP_NUMEQUAL OP_DROP
