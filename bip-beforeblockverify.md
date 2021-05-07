@@ -40,7 +40,7 @@ This BIP proposes a new script opcode, OP_BEFOREBLOCKVERIFY. The extension has a
 
 #### Efficient Wallet Vaults
 
-The primary motivation for this opcode is to create efficient wallet vaults. See the *Motivation* section in the [parent BIP](Script Parameter, op_scriptparam,  OP_CHECKSCRIPTVERIFY, and  OP_BEFORESEQUENCEVERIFY.md). In short, without some ability for spend-paths to expire, there is fundamentally no way to structure wallet vaults such that spending can be done in a single step.
+The primary motivation for this opcode is to create efficient wallet vaults. See the *Motivation* section in the [parent BIP](README.md). In short, without some ability for spend-paths to expire, there is fundamentally no way to structure wallet vaults such that spending can be done in a single step.
 
 #### Time-limited Escrow
 
@@ -49,6 +49,10 @@ An escrow can be set up such that the payer pays a 2-of-3 multisig address where
 OP_BBV could be used to implement more efficient time-limited escrows, where the sender would create a transaction output that is spendable if signed before a certain block height by both the sender and escrow service, and after that block height the output could only be spent by the end recipient. This has the benefits of only requiring one transaction for a recipient to receive exclusive ownership over the funds.
 
 Admittedly, this application of OP_BBV has not been studied to any depth and is just a concept.
+
+#### Expiring Payments
+
+If Alice send Bob some bitcoin but Bob has lost access to that address, the coins may be lost forever. OP_BBV can be used to construct a transaction that sends to an output where Bob must redeem the coins in that output by creating a transaction that spends the output within a time limit. If Bob has lost access to that address, Alice can retrieve the funds for reuse. This was originally described by ByteCoin [on bitcointalk.org](https://bitcointalk.org/index.php?topic=1786.msg21998#msg21998). I would say this application is not particularly useful, given that its already possible for someone to send to an output that is both spendable by Alice and Bob, where Alice expects Bob to redeem the coins. If Bob doesn't, Alice can still retrieve the coins. The only downside is that using only currently available mechanisms, either Alice or Bob must retrieve the coins, whereas with OP_BBV Alice can simply leave the coins there until they are needed to be spent. 
 
 ## Specification
 
@@ -83,7 +87,7 @@ There are two distinct types of invalidity for this opcode:
 
 ## Rationale
 
-This opcode allows a normal transaction from a bitcoin vault to take place in a single transaction, rather than in two transactions (like would be required by a bitcoin vault using [OP_CHECKTEMPLATEVERIFY](https://github.com/bitcoin/bips/blob/master/bip-0119.mediawiki#Deployment)). This cuts the space-cost (and therefore necessary fees) of these transactions nearly in half. 
+This opcode allows a normal transaction from a bitcoin vault to take place in a single transaction, rather than in two transactions (like would be required by a bitcoin vault using [OP_CHECKTEMPLATEVERIFY](https://github.com/bitcoin/bips/blob/master/bip-0119.mediawiki)). This cuts the space-cost (and therefore necessary fees) of these transactions nearly in half. 
 
 This is structured as a check-and-verify operation to prevent any need to run the script more than once. Were the opcode to push a value on the stack, a completely different code path could be executed across the block height boundary passed to the operation. If more operations that had boundary conditions were implemented, it could end up multiplying the number of times the script must be run, which both uses more computer resources and adds complexity to handling the transaction validation and mempool. 
 
@@ -109,7 +113,7 @@ Since OP_BBV can cause a valid signed transaction to become invalid at some poin
 1. in normal mempool handling, and
 2. in the case of reorgs. 
 
-In the past, objections have been given for any possibility for transactions to expire on these grounds. I asked a question about this [on the Bitcoin stack exchange](https://bitcoin.stackexchange.com/questions/96366/what-are-the-reasons-to-avoid-spend-paths-that-become-invalid-over-time-without) but haven't gotten any answers. I also had [a conversation](https://www.reddit.com/r/Bitcoin/comments/gwjr8p/i_am_jeremy_rubin_the_author_of_bip119_ctv_ama/ft2die9?utm_source=share&utm_medium=web2x&context=3) with Jeremy Rubin about this. I am very curious to know what other arguments against doing this there are. I will address those concerns here to the best of my knowledge.
+In the past, objections have been given for any possibility for transactions to expire on these grounds. I asked a question about this [on the Bitcoin stack exchange](https://bitcoin.stackexchange.com/questions/96366/what-are-the-reasons-to-avoid-spend-paths-that-become-invalid-over-time-without) but haven't gotten any answers. I also had [a conversation](https://www.reddit.com/r/Bitcoin/comments/gwjr8p/i_am_jeremy_rubin_the_author_of_bip119_ctv_ama/ft2die9?utm_source=share&utm_medium=web2x&context=0) with Jeremy Rubin about this. I am very curious to know what other arguments against doing this there are. I will address those concerns here to the best of my knowledge.
 
 ##### Mempool Handling
 

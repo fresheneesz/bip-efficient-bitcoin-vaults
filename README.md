@@ -101,7 +101,7 @@ The couple issues above are eliminated. This can be used to create highly redund
 * Vault outputs can be used in any combination, with each other, and with arbitrary other outputs. 
 * Arbitrary amounts can be sent to and from the vaults, so there are no footguns related to address reuse or incorrect receipt amounts.
 
-A more detailed description of a simple wallet of this type is described in [tapscriptWalletVault1.md](tapscriptWalletVault1.md), note that this has some limitations solved by [traditionalScriptWalletVault3.md](traditionalScriptWalletVault3.md).
+A more detailed description of a simple wallet of this type is described in [tapscriptWalletVault1.md](tapscriptWalletVault1.md), note that this has some limitations solved by [tapscriptWalletVault3.md](tapscriptWalletVault3.md).
 
 ## Design
 

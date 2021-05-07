@@ -20,7 +20,7 @@ This BIP proposes a new tapscript opcode, OP_PUSHOUTPUTSTACK. The extension has 
 
 ### Motivation
 
-The primary motivation for this opcode is to create efficient wallet vaults. This allows a parent output constrained with a covenant to pass information from its witness to a child output. This makes it possible to both constrain a parent output with a covenant and at the same time put requirements on the child output that weren't known on creation of the parent output. This allows, for example, the destination to be passed to the covenant parent output in its witness and then require the child output to be spendable by that destination. See the *Motivation* section in the [parent BIP](Script Parameter, op_scriptparam,  OP_CHECKSCRIPTVERIFY, and  OP_BEFORESEQUENCEVERIFY.md) for details and larger context. 
+The primary motivation for this opcode is to create efficient wallet vaults. This allows a parent output constrained with a covenant to pass information from its witness to a child output. This makes it possible to both constrain a parent output with a covenant and at the same time put requirements on the child output that weren't known on creation of the parent output. This allows, for example, the destination to be passed to the covenant parent output in its witness and then require the child output to be spendable by that destination. See the *Motivation* section in the [parent BIP](README.md) for details and larger context. 
 
 ## Specification
 
@@ -77,10 +77,6 @@ One could imagine storing the output stack directly, however because of the abil
 One way to mitigate this issue is to instead re-evaluate the parent output script to regenerate the output stack before use in the subsequent transaction. That way only the parent output needs to be stored, rather than the data generated. The transaction need not be fully evaluated either the second time around. Any opcodes that verify things and don't add anything onto the stack could simply avoid most of their evaluation steps, for example. 
 
 Another way to mitigate this is to limit how much data can be pushed to output stacks in total. The limit could be set to something like 50kb. A third way to mitigate this is to add this output stack data into the calculation of a transaction's vbytes so that extra effort used in building the output stacks from various inputs would be paid for. 
-
-## Backwards Compatibility
-
-See the relevant section in the [parent BIP](Script Parameter, op_scriptparam,  OP_CHECKSCRIPTVERIFY, and  OP_BEFORESEQUENCEVERIFY.md).
 
 ## Copyright
 

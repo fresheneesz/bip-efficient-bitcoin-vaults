@@ -41,7 +41,7 @@ This BIP proposes a new tapscript opcode, OP_CONSTRAINDESTINATION. The extension
 
 #### Better Wallet Vaults
 
-The primary motivation for this opcode is for wallet vaults. See the *Motivation* section in the [parent BIP](Script Parameter, op_scriptparam,  OP_CHECKSCRIPTVERIFY, and  OP_BEFORESEQUENCEVERIFY.md).
+The primary motivation for this opcode is for wallet vaults. See the *Motivation* section in the [parent BIP](README.md).
 
 #### Congestion Controlled Transactions
 
