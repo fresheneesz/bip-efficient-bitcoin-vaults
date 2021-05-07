@@ -23,13 +23,12 @@ Normal Case:
 3. Wait 1 day.
 4. Bob sends Alice `bobSecret`
 
-Bob doesn't send LTC:
+Bob doesn't send ALTC:
 
 1. Alice sends "BTC to Bob" transaction
-2. Bob sends "ALTC to Alice" transaction
 3. After say 6 hours, Alice sends the Revoke transaction.
 
-"Alice Revoke" after Bob sends "LTC to Alice":
+"Alice Revoke" after Bob sends "ALTC to Alice":
 
 1. Alice sends "BTC to Bob" transaction
 2. Bob sends "ALTC to Alice" transaction

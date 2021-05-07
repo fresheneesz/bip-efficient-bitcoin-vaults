@@ -48,7 +48,12 @@ The primary motivation for this BIP is to allow the creation of better wallet va
 
 #### Better Wallet Vaults
 
-A "wallet vault" is a wallet construct that uses time-delayed transactions to allows a window of time for the sender to reverse a transaction made maliciously, accidentally, or incorrectly. The opcodes described in this BIP can be used to create a efficient and flexible wallet vaults that are more efficient that ones that could be created using OP_CTV and solves security flaws of such wallet vaults. 
+A "wallet vault" is a wallet construct that uses time-delayed transactions to allows a window of time for the sender to reverse a transaction made maliciously, accidentally, or incorrectly. The opcodes described in this BIP can be used to create a efficient and flexible wallet vaults that are more efficient that ones that could be created using OP_CTV and solves security flaws of such wallet vaults. The vaults that can be created with the opcodes in this BIP have the following benefits:
+
+* Half as expensive as wallet vaults using OP_CHECKTEMPLATEVERIFY. If one day most on-chain transactions are from wallet vaults to lightning nodes (or vice versa), this could potentially reduce on-chain traffic by nearly 25%.
+* Far more flexible than OP_CTV vaults. Outputs can be spent in a transaction with any other outputs.
+* Fixes the security hole in OP_CTV vaults that allows an attacker to steal some funds that the vault owner is sending out of the vault. 
+* No presigned transactions necessary.
 
 #### Bitcoin Vault with OP_CHECKTEMPLATEVERIFY
 
@@ -183,8 +188,6 @@ C. Similar to B, an attacker who has found `key1` and knows the attacker has man
 D. An attacker who has found both `key1` and `key2` could of course freely steal the funds. This can be mitigated by adding more keys with additional levels of lock-times. 
 
 This would fail as long as the owner checks their wallet more frequently than the relative lock time (in the above example, every 5 days) minus the time it takes them to find and use both keys to recover.
-
-
 
 ### OP_SUCCESSx vs OP_NOPx
 

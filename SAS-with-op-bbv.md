@@ -7,11 +7,11 @@ The transactions could look like the following:
 ```
 // Notation
 // Output-Name: [source spending requirements]
-//   -> [destination1 spending requirements]
-//   -> [destination2 spending requirements]
+//   -> [output spend-path-1 requirements]
+//   -> [output spend-path-2 requirements]
 // ... 
 // Note that the listed destinations are exhaustive, implying that no other destinations may be
-// sent to. This can be accomplished either by using presigned transactions or covenants.
+// sent to.
 
 BTC to Bob: AliceSig 
   -> Bob Success:  BobSig & timelock(1 day) 
@@ -30,13 +30,12 @@ Normal Case:
 2. Bob sends "ALTC to Alice" transaction
 3. Wait 1 day.
 
-Bob doesn't send LTC:
+Bob doesn't send the ALTC:
 
 1. Alice sends "BTC to Bob" transaction
-2. Bob sends "ALTC to Alice" transaction
 3. After say 6 hours, Alice sends the Revoke transaction.
 
-"Alice Revoke" after Bob sends "LTC to Alice":
+"Alice Revoke" after Bob sends "ALTC to Alice":
 
 1. Alice sends "BTC to Bob" transaction
 2. Bob sends "ALTC to Alice" transaction
