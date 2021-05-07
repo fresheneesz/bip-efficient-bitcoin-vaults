@@ -16,9 +16,15 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
 
 ### Abstract
 
-This BIP proposes a new tapscript opcode, OP_PUSHOUTPUTSTACK. The extension has applications for efficient bitcoin vaults, among other things. This could either be activated using a tapscript OP_SUCCESSx opcode or less efficiently as a traditional OP_NOPx opcode.
+This BIP proposes a new tapscript opcode, OP_PUSHOUTPUTSTACK, which allows an input's script to pass data onto the script for particular outputs. The extension has applications for efficient bitcoin vaults, among other things. 
+
+This could either be activated using a tapscript OP_SUCCESSx opcode or less efficiently as a traditional OP_NOPx opcode.
 
 ### Motivation
+
+#### Better Wallet Vaults
+
+* No presigned transactions necessary.
 
 The primary motivation for this opcode is to create efficient wallet vaults. This allows a parent output constrained with a covenant to pass information from its witness to a child output. This makes it possible to both constrain a parent output with a covenant and at the same time put requirements on the child output that weren't known on creation of the parent output. This allows, for example, the destination to be passed to the covenant parent output in its witness and then require the child output to be spendable by that destination. See the *Motivation* section in the [parent BIP](README.md) for details and larger context. 
 
@@ -41,16 +47,20 @@ It does the following:
 5. If there is more than one output to the `address`, loop back to step 3 for each additional output.
 6. When the transaction is validated, the output's output stacks for each input are compared to ensure they are identical. 
 7. Upon evaluation of that output as a UTXO used as an input to a subsequent transaction, after the witness is evaluated, the output stack associated with one of those inputs (it is arbitrary since they have all been validated to be identical) is pushed onto the execution stack such that the last item on the output stack becomes the first item on the stack (in other words, the output stack values pushed onto the execution stack will be in the same order as the output stack). 
-8. Reversion modes. For all the following situations, the opcode reverts to its OP_SUCCESS semantics:
-   1. The `numberOfValues` is less than `-1`.
-9. Failure modes. For all the following situations, the transaction is marked invalid:
-   1. If being executed in anything other than the scriptPubKey (eg in the scriptSig or witness script).
-   2. The number of values on the stack is less than 2.
-   3. If `numberOfValues` is > 0 and the number of values on the stack after `numberOfValues` is popped is less than `numberOfOutputsForAddress * (numberOfValues+1)`.
-   4. Any `outputIndex` does not correspond to an output in the transaction.
-   5. The output corresponding to a given `outputIndex` is not being sent to the given `address`.
-   6. Any output sent to the given `address` isn't listed as an `outputIndex` given values in this operation. All outputs to the given `address` must be given values.
-   7. If two different inputs push values on an output stack for the same output and after both input scripts are evaluated, the output stacks for that output for each input script are not identical.
+
+Reversion modes. For all the following situations, the opcode reverts to its OP_SUCCESS semantics:
+
+* The `numberOfValues` is less than `-1`.
+
+Failure modes. For all the following situations, the transaction is marked invalid:
+
+1. If being executed in anything other than the scriptPubKey (eg in the scriptSig or witness script).
+2. The number of values on the stack is less than 2.
+3. If `numberOfValues` is >= 0 and the number of values on the stack after `numberOfValues` is popped is less than `numberOfOutputsForAddress * (numberOfValues+1)`.
+4. Any `outputIndex` does not correspond to an output in the transaction.
+5. The output corresponding to a given `outputIndex` is not being sent to the given `address`.
+6. Any output sent to the given `address` isn't listed as an `outputIndex` given values in this operation. All outputs to the given `address` must be given values.
+7. If two different inputs push values on an output stack for the same output and after both input scripts are evaluated, the output stacks for that output for each input script are not identical.
 
 ### Option B
 

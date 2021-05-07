@@ -35,11 +35,16 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
 
 ### Abstract
 
-This BIP proposes a new tapscript opcode, OP_CONSTRAINDESTINATION. The extension has applications for efficient bitcoin vaults, among other things. This could either be activated using a tapscript OP_SUCCESSx opcode or less efficiently as a traditional OP_NOPx opcode.
+This BIP proposes a new tapscript opcode, OP_CONSTRAINDESTINATION, which can be used to constrain the destination the output may be spent to. This involves both specifying particular addresses the output is allowed to send coins to, as well as constraining the amount of the fee that output is allowed to contribute to. The extension has applications for efficient bitcoin vaults, among other things. 
+
+This could either be activated using a tapscript OP_SUCCESSx opcode or less efficiently as a traditional OP_NOPx opcode.
 
 ### Motivation
 
 #### Better Wallet Vaults
+
+* Far more flexible than OP_CTV vaults. Outputs can be spent in a transaction with any other outputs.
+* Fixes the security hole in OP_CTV vaults that allows an attacker to steal some funds that the vault owner is sending out of the vault. 
 
 The primary motivation for this opcode is for wallet vaults. See the *Motivation* section in the [parent BIP](README.md).
 
@@ -75,13 +80,16 @@ OP_CONSTRAINDESTINATION (*OP_CD for short*) redefines opcode OP_SUCCESS_82 (0x52
 4. The next item popped from the stack is interpreted as an integer `feeFactor` (which can be positive of negative). If the number is -1, it is interpreted as -infinity (meaning the transaction can contribute nothing to the fee). 
 5. The `medianFeeRate` is defined as the median fee rate per vbyte for the most recent `windowLength` blocks.
 6. The input can contribute no more than `medianFeeRate * 2^feeFactor` of the fee, or the transaction will be marked invalid. Note that this is a limitation on the fee, not on the fee-rate. If `feeFactor` is -1, the input cannot contribute to the fee at all. For each relevant set of inputs constrained by OP_CD, ensure that `sum(inputs) - sum(constrainedOutputs) < sum(maxFeesForEachInput)`, otherwise mark the transaction as invalid. This check does not need to be performed on (irrelevant) sets of inputs where some group of those inputs shares no output address constraints (for outputs that exist in the transaction) with another non-overlapping group within that set. There is likely an optimal way to minimize the number of calculations that must be done for this, but that's left as future work.
-7. Reversion modes. For all the following situations, the opcode reverts to its OP_SUCCESS semantics:
-   1. `numberOfAddresses` is less than 0.
-   2. `sampleWindowFactor` is anything but a number 0 through 3.
-   3. `feeFactor` is less than -1 or more than 16.
-8. Failure modes. For all the following additional situations, the transaction is marked invalid:
-   1. If the number of values on the stack after `numberOfAddresses` is popped is less than `numberOfAddresses`.
-   2. If any address in `addressList` are invalid.
+
+Reversion modes. For all the following situations, the opcode reverts to its OP_SUCCESS semantics:
+
+1. `numberOfAddresses` is less than 0.
+2. `sampleWindowFactor` is anything but a number 0 through 3.
+3. `feeFactor` is less than -1 or more than 16.
+
+Failure modes. For all the following additional situations, the transaction is marked invalid:
+1. If the number of values on the stack after `numberOfAddresses` is popped is less than `numberOfAddresses`.
+2. If any address in `addressList` are invalid.
 
 #### Opcode Example Call
 

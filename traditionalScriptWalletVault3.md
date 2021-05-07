@@ -2,6 +2,8 @@
 
 This is a traditional script variant of [Tapscript Wallet Vault 3](tapscriptWalletVault3.md). The js-like pseudocode, properties, etc are all the same, so just the bitcoin scripts are shown.
 
+THIS IS CURRENTLY OUT OF SYNC WITH Tapscript Wallet Vault 3!! THIS NEEDS AN UPDATE.
+
 ## Script Implementation
 
 The base wallet vault address in a wallet vault would have the following spend paths:

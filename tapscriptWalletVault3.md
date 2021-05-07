@@ -4,6 +4,15 @@ This is a slight upgrade from [Wallet Vault 2](walletVault2.md). It allows spend
 
 These scripts use the same psuedo-code style and utility functions used by [Wallet Vault 1](walletVault1.md). 
 
+## Properties
+
+* Can send to multiple destinations in a transaction: true
+* Can omit the change address: true
+* Can spend change immediately: true
+* Can consolidate inputs: true. Arbitrary number of wallet vault inputs can be spent in the same transaction and send to the same destination/change address. 
+* Canceling each destination / change send either individually or together are both options: **false**. However, in the scenario of an attacker, this ability isn't needed. 
+* Finalization time: **5 days**. Sending to an address that expects to be able to spend the transaction earlier than this won't work. This is a fundamental limitation of a wallet vault.
+
 ## Base Wallet Vault Address
 
 The first address in a wallet vault would have the following spend paths:
@@ -96,15 +105,6 @@ The way funds in a *base wallet vault address* would be used is the following:
    1. Then they create a transaction with outputs to the desired destinations, and specify the outputIds and addresses as inputs to the script, and then sign with just one of the two keys. 
    2. After 5 days, the transaction is final and the destination address can spend it arbitrarily.
 3. If an attacker uses the "spendNormally" path described above, or if a mistake was made by the owner, the owner can cancel the transaction before the transaction has had 5 days of confirmations by creating a transaction and signing it with both keys. Note that the owner should cancel all outputs in the same transaction in order to retain quantum resistance. 
-
-## Properties
-
-* Can send to multiple destinations in a transaction: true
-* Can omit the change address: true
-* Can spend change immediately: true
-* Can consolidate inputs: true. Arbitrary number of wallet vault inputs can be spent in the same transaction and send to the same destination/change address. 
-* Canceling each destination / change send either individually or together are both options: **false**. However, in the scenario of an attacker, this ability isn't needed. 
-* Finalization time: **5 days**. Sending to an address that expects to be able to spend the transaction earlier than this won't work. This is a fundamental limitation of a wallet vault.
 
 ## Script Implementation
 

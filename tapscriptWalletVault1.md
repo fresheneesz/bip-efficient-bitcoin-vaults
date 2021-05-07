@@ -4,6 +4,16 @@ This is a basic wallet vault script using the operations OP_POSS, OP_CD, and OP_
 
 The scripts are written in javascript-like pseudo-code. Variables that end in an underscore (eg `intermediateAddress_`) represent hard coded values in the script.
 
+## Properties
+
+* Can send to arbitrarily many destinations in a transaction: **false**
+* Can always limit the transaction to one change output: true.
+* Can omit the change address: **false**
+* Can spend change immediately: **false**
+* Can consolidate inputs: true. Arbitrary number of wallet vault inputs can be spent in the same transaction and send to the same destination/change address. 
+* Canceling each destination / change send either individually or together are both options: **true**.
+* Finalization time: **5 days**. Sending to an address that expects to be able to spend the transaction earlier than this won't work. This is a fundamental limitation of a wallet vault.
+
 ## Utility functions
 
 These are utility functions that will be used in the pseudo-scripts below:
@@ -89,16 +99,6 @@ The way funds in a *base wallet vault address* would be used is the following:
    2. then they create a transaction with two outputs: one to the `destinationIntermediateAddress_` and one to the `changeIntermediateAddress_`, specify the outputIds and addresses as inputs to the script, and then sign with just one of the two keys. 
    3. After 5 days, the transaction is final and the destination address can spend it arbitrarily.
 3. If an attacker uses the "spendNormally" path described above, or if a mistake was made by the owner, the owner can cancel the transaction before the transaction has had 5 days of confirmations by creating a transaction and signing it with both keys. Note that the owner can choose to cancel the spends to the `destinationIntermediateAddress_` and `changeIntermediateAddress_` individually or together in one transaction and can choose to cancel one and not the other. 
-
-## Properties
-
-* Can send to arbitrarily many destinations in a transaction: **false**
-* Can always limit the transaction to one change output: true.
-* Can omit the change address: **false**
-* Can spend change immediately: **false**
-* Can consolidate inputs: true. Arbitrary number of wallet vault inputs can be spent in the same transaction and send to the same destination/change address. 
-* Canceling each destination / change send either individually or together are both options: **true**.
-* Finalization time: **5 days**. Sending to an address that expects to be able to spend the transaction earlier than this won't work. This is a fundamental limitation of a wallet vault
 
 ## Script Implementation
 

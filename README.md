@@ -38,7 +38,7 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
 
 ### Abstract
 
-This BIP proposes three new script opcodes: [OP_BEFOREBLOCKVERIFY](bip-beforeblockverify.md), [OP_PUSHOUTPUTSTACK](bip-pushoutputstack.md), and [OP_CONSTRAINDESTINATION](bip-constraindestination.md). The extension has applications for efficient bitcoin vaults, among other things, which are described in the *Motivation* section of this BIP.
+This BIP proposes three new script opcodes: [OP_BEFOREBLOCKVERIFY](bip-beforeblockverify.md), [OP_PUSHOUTPUTSTACK](bip-pushoutputstack.md), and [OP_CONSTRAINDESTINATION](bip-constraindestination.md). These extensions have applications for efficient bitcoin vaults, among other things, which are described in the *Motivation* sections of this BIP and the opcode BIPs.
 
 ### Motivation
 
@@ -63,7 +63,7 @@ Let's say we construct two addresses, each with their own script.
 
 `Address B` has 2 spend paths:
 
-1. Can be spent by `key2`, after a relative time-lock of 5 days, to any address.
+1. Can be spent by `key1`, after a relative time-lock of 5 days, to any address.
 2. Can be spent by `key1` + `key2` without waiting for any time-lock, to any address.
 
 This set up allows a normal transaction to proceed as follows:
@@ -75,8 +75,9 @@ If the transaction needs to be canceled after step 1 (eg because key1 was compro
 
 There are a couple issues with the above bitcoin vault construct:
 
-* Sending to a transaction normally requires 2 transactions (assuming Address A's spend-path 2 is usually avoided for ease of use and security reasons).
-* An attacker who has compromised `key2` can still steal funds if they patiently wait for a transaction to come through, as mentioned in ["Custody Protocols Using Bitcoin Vaults"](https://arxiv.org/pdf/2005.11776.pdf) by Swambo et al.
+* Sending to a transaction normally requires 2 transactions (assuming Address A's spend-path 2 is usually avoided for ease of use and security reasons) for any trustless transaction that is sent to another person. In the cases that a person is sending from their wallet vault to another address they own, this downside doesn't exist. Similarly in cases where the recipient already trusts the sender to not claw back funds, this may not be a concern. 
+* An attacker who has compromised `key1` can still steal or grief funds if they patiently wait for a transaction to come through, as mentioned in ["Custody Protocols Using Bitcoin Vaults"](https://arxiv.org/pdf/2005.11776.pdf) by Swambo et al. 
+  * The attack could proceed as follows: An attacker who has gained a copy of `key1` would simply wait until the victim sends a particularly large transaction into `Address B`. As soon as the timeout expires on the transaction from `Address A` -> `Address B`, the attacker could broadcast a transaction using `key2` from `Address B` to wherever they want. Even if the victim always broadcasts a transaction immediately upon timeout expiry, its likely the attacker will simply use an exorbitant fee in anticipation of that possibility and beat out the victim. Its unlikely for the victim to be able to react in time manually to this, and even if automated reactions were prepared, this would generally also end in an arms race of fees where the victim still loses their funds. So the best case scenario for this is a grief-attack vector.
 * Outputs in the vault can only be spent one at a time - they cannot be combined other outputs, neither from the same vault nor any other output.
 * [Footguns related to address reuse and incorrect receipt amounts.](https://github.com/bitcoin/bips/blob/master/bip-0119.mediawiki#forwarding-addresses)
 
@@ -97,7 +98,7 @@ Let's say we construct two addresses, each with their own script. `Address A` ha
 The couple issues above are eliminated. This can be used to create highly redundant, highly secure wallets like [this one](https://github.com/fresheneesz/TordlWalletProtocols/blob/master/experimental/singleWalletProtocols/Time-locked-3-Seed-Cold-Wallet.md).
 
 * Spending requires only a single transaction.
-* Funds cannot be stolen if only 1 of [`key1`, `key2`] are compromised. All keys must be compromised to steal funds.
+* Funds cannot be stolen if only 1 of [`key1`, `key2`] are compromised. All keys must be compromised to steal funds. Griefing is strictly limited.
 * Vault outputs can be used in any combination, with each other, and with arbitrary other outputs. 
 * Arbitrary amounts can be sent to and from the vaults, so there are no footguns related to address reuse or incorrect receipt amounts.
 

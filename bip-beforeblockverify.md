@@ -34,15 +34,45 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
 
 ### Abstract
 
-This BIP proposes a new script opcode, OP_BEFOREBLOCKVERIFY. The extension has applications for efficient bitcoin vaults, among other things. This could either be activated using a tapscript OP_SUCCESSx opcode or less efficiently as a traditional OP_NOPx opcode.
+This BIP proposes a new script opcode, OP_BEFOREBLOCKVERIFY which can be used to mark a spend path only valid before a certain number of blocks after the output was created. The extension has applications for efficient bitcoin vaults, atomic swaps, escrows, among other things. 
+
+This could either be activated using a tapscript OP_SUCCESSx opcode or less efficiently as a traditional OP_NOPx opcode.
 
 ### Motivation
 
+OP_BBV can be used to make numerous kinds of transactions either:
+
+1. more efficient, generally by reducing two transactions into 1, 
+2. more robust, for example by constraining the time a watcher needs to watch the blockchain (eg with Succinct Atomic Swaps).
+
+Efficient Wallet Vaults, Time-limited Escrows, and Expiring Payments are all the case 1 type, and Improved Succinct Atomic Swap is of type 2.
+
 #### Efficient Wallet Vaults
+
+* Half as expensive as wallet vaults using OP_CHECKTEMPLATEVERIFY. If one day most on-chain transactions are from wallet vaults to lightning nodes (or vice versa), this could potentially reduce on-chain traffic by nearly 25%.
 
 The primary motivation for this opcode is to create efficient wallet vaults. See the *Motivation* section in the [parent BIP](README.md). In short, without some ability for spend-paths to expire, there is fundamentally no way to structure wallet vaults such that spending can be done in a single step.
 
+#### Improved Succinct Atomic Swap
+
+* Simplified backup properties.
+* No need for indefinite chain watching.
+
+[Ruben Somsen's SAS](https://gist.github.com/RubenSomsen/8853a66a64825716f51b409be528355f) uses a pre-signing mechanism using adaptor signatures where a cross-chain atomic swap can be  completed with a single on-chain transaction on each chain. However, this mechanism requires one of the actors to watch the blockchain for a cheating attempt, so they can prevent the cheating attempt from succeeding. 
+
+By using OP_BBV, the counterparty that needs to watch and wait for a cheating attempt can have a strictly limited time-period in which watching is necessary. This would mean that no theft or griefing would be possible after that point, and it could also be set up so that the secret is no longer needed to spend the resulting output, thus simplifying backup after that point (such that static seed-only restore is possible after that point). 
+
+One possibility uses timelocks in both chains and OP_BBV in at least one chain. See the document [Succinct Atomic Swaps With OP_BBV](SAS-with-op-bbv.md) for details. Another possibility uses timelocks and OP_BBV in one chain, and neither in the other chain. See the document [Succinct Atomic Swaps With OP_BBV Without Altcoin Timelock](SAS-with-op-bbv-and-witness-secret.md) for details on that.
+
+#### Lightning Channel Applications
+
+One application would be to have commitment transactions expire after a period of time, eg 2 weeks. This way the risk of old commitment transactions could be limited to commitments made in that 2 week period. This would require that the commitment transaction be updated a least once every 2 weeks. 
+
+Other applications to the lightning network should be explored.
+
 #### Time-limited Escrow
+
+* Half as expensive as currently possible escrow setups. 
 
 An escrow can be set up such that the payer pays a 2-of-3 multisig address where the payer, recipient, and escrow service all hold one key. Once the item is received, the money can be sent to the recipient by either the payer and recipient collaborating or the escrow service and one of the other parties collaborating. 
 
@@ -52,7 +82,9 @@ Admittedly, this application of OP_BBV has not been studied to any depth and is 
 
 #### Expiring Payments
 
-If Alice send Bob some bitcoin but Bob has lost access to that address, the coins may be lost forever. OP_BBV can be used to construct a transaction that sends to an output where Bob must redeem the coins in that output by creating a transaction that spends the output within a time limit. If Bob has lost access to that address, Alice can retrieve the funds for reuse. This was originally described by ByteCoin [on bitcointalk.org](https://bitcointalk.org/index.php?topic=1786.msg21998#msg21998). I would say this application is not particularly useful, given that its already possible for someone to send to an output that is both spendable by Alice and Bob, where Alice expects Bob to redeem the coins. If Bob doesn't, Alice can still retrieve the coins. The only downside is that using only currently available mechanisms, either Alice or Bob must retrieve the coins, whereas with OP_BBV Alice can simply leave the coins there until they are needed to be spent. 
+If Alice send Bob some bitcoin but Bob has lost access to that address, the coins may be lost forever. OP_BBV can be used to construct a transaction that sends to an output where Bob must redeem the coins in that output by creating a transaction that spends the output within a time limit. If Bob has lost access to that address, Alice can retrieve the funds for reuse. This was originally described by ByteCoin [on bitcointalk.org](https://bitcointalk.org/index.php?topic=1786.msg21998#msg21998). 
+
+It is currently possible for someone to send to an output that is both spendable by Alice and Bob, where Alice expects Bob to redeem the coins. If Bob doesn't, Alice can still retrieve the coins. The downside of currently available mechanisms is that either Alice or Bob must retrieve the coins to complete the transaction, whereas with OP_BBV Alice can simply leave the coins there until she wants to spend it.
 
 ## Specification
 
@@ -62,9 +94,9 @@ OP_BEFOREBLOCKVERIFY (*OP_BBV for short*) redefines opcode OP_SUCCESS_80 (0x50).
 
 * Pops the top of the stack and marks the transaction invalid if the block that the transaction is mined in has a height of greater than or equal to that value. This can allow a spend path to expire.
 * Reversion modes. For all the following situations, the opcode reverts to its OP_SUCCESS semantics:
-  1. The top item on the stack is less than 0.
+  * The top item on the stack is less than 0.
 * Failure modes. For all the following additional situations, the transaction is marked invalid:
-  1. The stack is empty.
+  * The stack is empty.
 
 ### Option B - Traditional Script Opcode
 
@@ -150,7 +182,7 @@ I've asked [a question about  how reorgs are handled](https://bitcoin.stackexcha
 
 ##### Spam Risk
 
-Using OP_BBV, someone could spam the mempool with valid transactions that expire in the next block. If the spammer waits for that block to be mined before broadcasting, they could spam the network with transactions that are no longer valid among nodes who have node received the new block yet.
+Using OP_BBV, someone could spam the mempool with valid transactions that expire in the next block. If the spammer waits for that block to be mined before broadcasting, they could spam the network with transactions that are no longer valid among nodes who have not received the new block yet.
 
 An mitigation to this is to simply reject transactions that expire in the next block. However, the attacker may then create transactions with a fee too low to likely get into 2 blocks from now. Some evaluation of the likelihood of how quickly the transaction can get into a block is needed, and this is discussed in the *Mempool Handling* section above. 
 
