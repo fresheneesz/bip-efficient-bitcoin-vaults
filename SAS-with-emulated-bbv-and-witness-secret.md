@@ -1,8 +1,6 @@
 # Succinct Atomic Swaps With Emulated OP_BBV Without Altcoin Timelock
 
-The [SAS with OP_BBV without Altcoin Timelock](SAS-with-op-bbv-and-witness-secret.md) can be emulated using [this emulation technique](bip-beforeblockverify.md#emulation-with-absolute-and-relative-timelocks). This has the downside that 
-
-This allows these simple Succinct Atomic Swaps with one chain not supporting timelocks at the expense of backup complexity for the party receiving the coin that doesn't support time locks, Alice, and the ability for Bob to prevent Alice from accessing those coins until Bob spends his coins. 
+The [SAS with OP_BBV without Altcoin Timelock](SAS-with-op-bbv-and-witness-secret.md) can be emulated using [this emulation technique](bip-beforeblockverify.md#emulation-with-absolute-and-relative-timelocks). This has the downside that one party (Bob) must watch the blockchain until he spends the coins he received in the swap. 
 
 The transactions could look like the following using [spend-path notation](notation.md):
 
