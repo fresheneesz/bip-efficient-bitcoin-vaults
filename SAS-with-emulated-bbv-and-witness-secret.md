@@ -1,6 +1,6 @@
 # Succinct Atomic Swaps With Emulated OP_BBV Without Altcoin Timelock
 
-This is very similar to [Succinct Atomic Swaps With OP_BBV](SAS-with-op-bbv.md), however it can be done if the altcoin does not support timelocks. Note the same notation is used as in that write up. 
+The [SAS with OP_BBV without Altcoin Timelock](SAS-with-op-bbv-and-witness-secret.md) can be emulated using [this emulation technique](bip-beforeblockverify.md#emulation-with-absolute-and-relative-timelocks). This has the downside that 
 
 This allows these simple Succinct Atomic Swaps with one chain not supporting timelocks at the expense of backup complexity for the party receiving the coin that doesn't support time locks, Alice, and the ability for Bob to prevent Alice from accessing those coins until Bob spends his coins. 
 
@@ -55,10 +55,11 @@ In this case, Alice must wait indefinitely at step 6 until Bob spends his part.
 ## Properties
 
 * In normal cases, only two transactions needed in total - one on each chain.
-* In failure cases, four transactions in total will be needed.
-* In normal cases, the transaction can be considered complete by both parties after 1 day (or whatever the smaller timeout is). No watching is needed after that time. 
-* Recovery for Alice does requires her seed *and* `bobSecret`, which complicates backup procedures and likely reduces their resilience. 
-* Alice must keep track of a secret for a period of time until either Bob sends the "ALTC to Alice" transaction (and it is confirmed) or until Alice sends the "Alice Revoke" transaction. In practice, this could take well under an hour (or some small fraction of whatever smaller timeout is chosen). 
+* In failure cases, up to five transactions in total may be needed.
+* Alice can consider the transaction complete after 1 day.
+* Bob can only consider the transaction fully complete when he spends the `Bob Success` spend-path. Until then, Bob must watch the chain for Alice attempting to cheat. 
+* Recovery for Bob and Alice both require `bobSecret`, which complicates backup procedures and likely reduces their resilience. 
+* Alice must keep track of a `aliceSecret` for a period of time until either Bob sends the "ALTC to Alice" transaction (and it is confirmed) or until Alice sends the "Alice Revoke" transaction. In practice, this could take well under an hour (or some small fraction of whatever smaller timeout is chosen). 
 
 ## Comparison to SAS without OP_BBV
 

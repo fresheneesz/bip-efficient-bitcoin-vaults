@@ -2,45 +2,45 @@
 
 Using two slightly asymmetric transactions each using timelocks and [OP_BEFOREBLOCKVERIFY](bip-beforeblockverify.md), the atomic swap can happen with a single transaction on each chain, and recovery normally does not require storing any secrets.
 
-The transactions could look like the following:
+The transactions could look like the following using [spend-path notation](notation.md):
 
 ```
-// Notation
-// Output-Name: [source spending requirements]
-//   -> [output spend-path-1 requirements]
-//   -> [output spend-path-2 requirements]
-// ... 
-// Note that the listed destinations are exhaustive, implying that no other destinations may be
-// sent to.
+AliceSig 
+-> BTC to Bob: 
+   * Bob Success:  BobSig & timelock(1 day) 
+   * Alice Revoke: AliceSig & aliceSecret & bbv(1 day)
 
-BTC to Bob: AliceSig 
-  -> Bob Success:  BobSig & timelock(1 day) 
-  -> Alice Revoke: AliceSig & aliceSecret & bbv(1 day)
-
-ALTC to Alice: BobSig 
-  -> Alice Success: AliceSig & timelock(2 days)
-  -> Bob Revoke:    BobSig & aliceSecret & bbv(2 days) 
+BobSig 
+-> ALTC to Alice: 
+   * Alice Success: AliceSig & timelock(2 days)
+   * Bob Revoke:    BobSig & aliceSecret & bbv(2 days) 
 ```
 
 Note that the `bbv(2 days)` in the `Bob Revoke` transaction isn't strictly necessary, since aliceSecret should never be exposed after 1 day, however it is nice to close out the possibility that Alice might leak aliceSecret sometime in the future which could allow Bob to steal her funds. 
 
-Normal Case:
+## Cases
+
+### Normal Case
 
 1. Alice sends "BTC to Bob" transaction
 2. Bob sends "ALTC to Alice" transaction
 3. Wait 1 day.
 
-Bob doesn't send the ALTC:
+### Bob doesn't send the ALTC after step 1
 
 1. Alice sends "BTC to Bob" transaction
-3. After say 6 hours, Alice sends the Revoke transaction.
+3. After say 6 hours, Alice sends a transaction using the ` Alice Revoke` spend-path.
 
-"Alice Revoke" after Bob sends "ALTC to Alice":
+### "Alice Revoke" after Bob sends "ALTC to Alice" in step 2
 
 1. Alice sends "BTC to Bob" transaction
 2. Bob sends "ALTC to Alice" transaction
-3. After say 6 hours, Alice sends the Revoke transaction. This reveals aliceSecret.
+3. After say 6 hours, Alice sends the Revoke transaction. This reveals `aliceSecret`.
 4. Bob then sends "Bob Revoke".
+
+### Notes on other hypothetical cases:
+
+* Alice can't spend the `Alice Revoke` transaction after 1 day, so `aliceSecret` shouldn't ever be reveled after that point, and therefore `Bob Revoke` also can't be spent after 1 day. 
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Succinct Atomic Swaps With  Emulated OP_BBV
 
-Using two slightly asymmetric transactions each using time-locks and [OP_BEFOREBLOCKVERIFY](bip-beforeblockverify.md), the atomic swap can happen with a single transaction on each chain, and recovery normally does not require storing any secrets.
+The [SAS with OP_BBV](SAS-with-op-bbv.md) can be emulated using [this emulation technique](bip-beforeblockverify.md#emulation-with-absolute-and-relative-timelocks). This has the downside that one party (Bob) must watch the blockchain until he spends the coins he received in the swap. 
 
 The transactions could look like the following using [spend-path notation](notation.md):
 
@@ -57,7 +57,8 @@ At the end of this, Bob gets both the ALTC and the BTC. Its in Alice's best inte
 
 * In normal cases, only two transactions needed in total - one on each chain.
 * In failure cases, up to five transactions in total may be needed.
-* The transaction can only be considered fully complete when Bob spends the `Bob Success` spend-path. Until then, Bob must watch the chain for Alice attempting to cheat. 
+* Alice can consider the transaction complete after 1 day.
+* Bob can only consider the transaction fully complete when he spends the `Bob Success` spend-path. Until then, Bob must watch the chain for Alice attempting to cheat. 
 * Recovery normally does not require any secrets - recovery should be possible from just the seed.
 * Alice must keep track of a secret for a period of time until either Bob sends the "ALTC to Alice" transaction (and it is confirmed) or until Alice sends the "Alice Revoke Success" transaction. In practice, this could normally take well under an hour (or some small fraction of whatever smaller timeout is chosen). 
 
