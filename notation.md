@@ -2,7 +2,7 @@
 
 This file describes the notation used in these BIPs for a couple different kinds of things.
 
-## Spend-path Notation
+## Transaction Sequence Notation
 
 This notation is used to describe sequences of transactions and what spend paths they have. Spending requirements are written as a logical operation with these being some conventions:
 
@@ -13,27 +13,33 @@ This notation is used to describe sequences of transactions and what spend paths
 * `absTimelock(x days/hours/etc)` - Like `timelock` except is an absolute timelock, where the time is probably dependent on the protocol (sequence of transactions) being decided on by the parties involved.
 * `&` - And operator.
 * `||` - Or operator. 
+* `&||` - And/or operator. Useful if you want to specify that a user can send a transaction that contains multiple outputs. `a &| b` is equivalent to `a || b || a & b`
 
 An example of spending requirements: `AliceSig & bobSecret || CarolAddr`
 
-The following describes a simple situation where one output can be spent to another output with particular spending requirements. These can be chained into many steps. Any output/address that doesn't have more spend paths should be assumed to be able to spend anywhere if the spending requirements are fulfilled.
+The following describes a simple situation where one output can be spent to another output with particular spending requirements. These can be chained into many steps. Any output/address that doesn't list more transactions from that point indicates that it can be spend to anywhere if the spending requirements are fulfilled. 
 
 ```
-UTXO or Address Name 1: [spending requirements] -> Output or Address Name 2: [spending requirements]
+Address/Output 1: spending requirements 1 -> Address/Output 2: spending requirements 2
 ```
 
 The following describes spending one UTXO to one of two outputs. These can be chained to add as many possible outputs as needed.
 
 ```
-UTXO or Address Name 1: [spending requirements]
--> Output or Address Name 2: [spending requirements]
--> Output or Address Name 3: [spending requirements]
+Address/Output 1: spending requirements
+-> Address/Output 1.1: spending requirements
+   -> Address/Output 1.1.1: spending requirements
+   -> Address/Output 1.1.2: spending requirements
+-> Address/Output 1.2: spending requirements
+   -> Address/Output 1.2.1: spending requirements
 ```
 
-In cases where different spend path requirements for the same input may have different possible outputs they can spend to, the following notation can be used:
+Note that the listed destinations are exhaustive, implying that no other destinations may be sent to. This may be accomplished by either pre-signed transactions, covenants, etc. 
+
+In cases where an address/output has multiple spend-paths, the following notation can be used:
 
 ```
-Output Name 1:
+Address/Output Name 1:
 * Spend-path Name: [spending requirements 1]
 -> Output Name 2: [spending requirements]
 -> Output Name 3: [spending requirements]
@@ -42,18 +48,39 @@ Output Name 1:
 ... 
 ```
 
- Note that the listed destinations are exhaustive, implying that no other destinations may be sent to. This may be accomplished by either pre-signed transactions, covenants, use of revealable secrets, etc. 
-
-The three forms above can be mixed and matched depending on what is most succinct. The following two scripts are equivalent:
+Note that the following two scripts are equivalent:
 
 ```
-Address X: AliceSig || BobSig
+Address X: AliceKey
+-> BobKey || CarolKey
 ```
 
 ```
-Address X:
-* AliceSig
-* BobSig
+Address X: AliceSig
+* BobKey
+* CarolKey
+```
+
+In cases where a transaction may or must contain multiple outputs, already-defined addresses can be combined using logical operators on the already-defined addresses. For example:
+
+```
+
+Multisig Address: AliceSig & BobSig
+-> AliceKey & BobSecret
+   -> AliceKey &|| BobKey &|| MultisigAddress
+```
+
+The three forms above can be mixed and matched depending on what is most succinct. For example:
+
+```
+AliceSig
+-> BobKey -> CarolKey
+-> CarolKey
+   -> DarrelKey
+-> Multisig Address:
+   * AliceKey & BobKey
+   -> CarolKey -> BobKey
+   * AliceKey & CarolKey & aliceSecret
 ```
 
 ## JS-like Pseudocode Notation

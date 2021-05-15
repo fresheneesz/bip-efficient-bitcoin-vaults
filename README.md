@@ -42,9 +42,13 @@ This BIP proposes three new script opcodes: [OP_BEFOREBLOCKVERIFY](bip-beforeblo
 
 ### Motivation
 
-This section discusses motivations for the creation of this wallet vault BIP. Additional motivations specific to each opcode are discussed in the BIPs for each opcode.
+* Efficient wallet vaults (in comparison to OP_CTV wallet vaults).
+  * Half as expensive, because spending only requires one transaction (instead of two).
+  * Funds are not vulnerable during spending (vs OP_CTV vaults where an attacker who only has one of many keys can steal funds in transit).
+  * Very flexible - vault outputs can be used as inputs in any combination and spent to any combination of outputs (vs OP_CTV vaults where each output must be spent in its own separate transaction with no other inputs and only a single list of specific outputs). 
+* Other motivations specific to each of the three opcodes.
 
-The primary motivation for this BIP is to allow the creation of better wallet vaults with more ideal characteristics that have as few limitations as possible in comparison to normal bitcoin transactions.
+The primary motivation for this BIP is to allow the creation of better wallet vaults with more ideal characteristics that have as few limitations as possible in comparison to normal bitcoin transactions. Additional motivations specific to each opcode are discussed in the BIPs for each opcode. 
 
 #### Better Wallet Vaults
 
@@ -57,7 +61,7 @@ A "wallet vault" is a wallet construct that uses time-delayed transactions to al
 
 #### Bitcoin Vault with OP_CHECKTEMPLATEVERIFY
 
-OP_CHECKTEMPLATEVERIFY specified in [BIP 119](https://github.com/bitcoin/bips/blob/master/bip-0119.mediawiki) allows for creating [wallet vaults](https://utxos.org/uses/vaults/) of form described below. 
+OP_CHECKTEMPLATEVERIFY specified in [BIP 119](https://github.com/bitcoin/bips/blob/master/bip-0119.mediawiki) allows for creating [wallet vaults](https://utxos.org/uses/vaults/) of form described below.
 
 Let's say we construct two addresses, each with their own script.
 
@@ -71,10 +75,20 @@ Let's say we construct two addresses, each with their own script.
 1. Can be spent by `key1`, after a relative time-lock of 5 days, to any address.
 2. Can be spent by `key1` + `key2` without waiting for any time-lock, to any address.
 
+In [spend-path notation](notation.md), the above would be:
+
+```
+Address A:
+* Normal: key1Sig
+-> Address B: key1Sig & timelock(5 days) || key1Sig & key2Sig
+-> Change Address A: ... // With similar spending requirements to Address A
+* Immediate: key1Sig & key2Sig
+```
+
 This set up allows a normal transaction to proceed as follows:
 
-1. Use `Address A`'s spent-path 1 to send to `Address B`.
-2. If the transaction was in fact intended by the owner, after the relative time-lock, the owner can use Address B's spend-path 1 to send to the final destination. 
+1. Use `Address A`'s `Normal` spent-path to send to `Address B`.
+2. If the transaction was in fact intended by the owner, after the relative time-lock, the owner can spend the output from Address B's to the final destination using a `key1` signature.
 
 If the transaction needs to be canceled after step 1 (eg because key1 was compromised and the transaction wasn't actually intended by the owner), `Address B`'s spend path 2 can be used to send the funds to a new wallet.
 

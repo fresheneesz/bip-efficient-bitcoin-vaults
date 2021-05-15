@@ -24,7 +24,7 @@ This could either be activated using a tapscript OP_SUCCESSx opcode or less effi
 
 #### Better Wallet Vaults
 
-* No presigned transactions necessary.
+* No pre-signed transactions necessary.
 
 The primary motivation for this opcode is to create efficient wallet vaults. This allows a parent output constrained with a covenant to pass information from its witness to a child output. This makes it possible to both constrain a parent output with a covenant and at the same time put requirements on the child output that weren't known on creation of the parent output. This allows, for example, the destination to be passed to the covenant parent output in its witness and then require the child output to be spendable by that destination. See the *Motivation* section in the [parent BIP](README.md) for details and larger context. 
 

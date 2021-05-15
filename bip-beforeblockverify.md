@@ -40,6 +40,9 @@ This could either be activated using a tapscript OP_SUCCESSx opcode or less effi
 
 ### Motivation
 
+* Improved Succinct Atomic Swap, where only one transaction per chain is required to complete a swap, without needing any indefinite watching of the chain and without requiring backup of state other than a seed. 
+* Cheaper escrows that are half as expensive as current escrow options
+
 OP_BBV can be used to make numerous kinds of transactions either:
 
 1. more efficient, generally by reducing two transactions into 1, 
@@ -62,7 +65,7 @@ The primary motivation for this opcode is to create efficient wallet vaults. See
 
 By using OP_BBV, the counterparty that needs to watch and wait for a cheating attempt can have a strictly limited time-period in which watching is necessary. This would mean that no theft or griefing would be possible after that point, and it could also be set up so that the secret is no longer needed to spend the resulting output, thus simplifying backup after that point (such that static seed-only restore is possible after that point). 
 
-One possibility uses timelocks in both chains and OP_BBV in at least one chain. See the document [Succinct Atomic Swaps With OP_BBV](SAS-with-op-bbv.md) for details. Another possibility uses timelocks and OP_BBV in one chain, and neither in the other chain. See the document [Succinct Atomic Swaps With OP_BBV Without Altcoin Timelock](SAS-with-op-bbv-and-witness-secret.md) for details on that.
+One possibility uses timelocks in both chains and OP_BBV in at least one chain. See the document [Succinct Atomic Swaps With OP_BBV](SAS-with-op-bbv.md) for details.
 
 #### Lightning Channel Applications
 

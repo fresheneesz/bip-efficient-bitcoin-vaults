@@ -41,6 +41,11 @@ This could either be activated using a tapscript OP_SUCCESSx opcode or less effi
 
 ### Motivation
 
+* Covenants that are more flexible than OP_CTV. OP_CD covenant outputs can be used as inputs in any combination and spent to any combination of outputs (vs OP_CTV vaults where each output must be spent in its own separate transaction with no other inputs and only a single list of specific outputs).
+* Wallet vaults. 
+* Congestion controlled transactions.
+* Non-interactive payment channels.
+
 #### Better Wallet Vaults
 
 * Far more flexible than OP_CTV vaults. Outputs can be spent in a transaction with any other outputs.
@@ -104,9 +109,9 @@ D
 OP_CONSTRAINDESTINATION 
 ```
 
-#### Pseudocode Examples
+#### Example Transactions
 
-For the following examples, I'll write this information as `OP_CD(sampleWindowFactor, feeFactor, [Address1, Address2,...])`. For example, the above example script would be written as `OP_CD(300 blocks, 7, [D, C])`. I'll also use 10 sats/byte as the 300-block median fee rate.
+For the following examples, I'll write this information using [javascript-like pseudocode](notation.md) as `OP_CD(sampleWindowFactor, feeFactor, [Address1, Address2,...])`. For example, the above example script would be written as `OP_CD(300 blocks, 7, [D, C])`. I'll also use 10 sats/byte as the 300-block median fee rate.
 
 Example Transaction A:
 
