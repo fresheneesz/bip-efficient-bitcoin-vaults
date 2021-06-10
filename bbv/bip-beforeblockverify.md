@@ -36,30 +36,30 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
 
 This BIP proposes a new script opcode, OP_BEFOREBLOCKVERIFY which can be used to mark a spend path only valid before a certain number of blocks after the output was created. The extension has applications for efficient bitcoin vaults, atomic swaps, escrows, among other things. 
 
-This could either be activated using a tapscript OP_SUCCESSx opcode or less efficiently as a traditional OP_NOPx opcode.
+This can be activated using a tapscript OP_SUCCESSx opcode.
 
 ### Motivation
 
-* Improved Succinct Atomic Swap, where only one transaction per chain is required to complete a swap, without needing any indefinite watching of the chain and without requiring backup of state other than a seed. 
-* Cheaper escrows that are half as expensive as current escrow options
-
 OP_BBV can be used to make numerous kinds of transactions either:
 
-1. more efficient, generally by reducing two transactions into 1, 
-2. more robust, for example by constraining the time a watcher needs to watch the blockchain (eg with Succinct Atomic Swaps).
+1. more efficient, generally by reducing two transactions to one, for example:
+2. more robust, for example by constraining the time a watcher needs to watch the blockchain (eg with Succinct Atomic Swaps). 
 
-Efficient Wallet Vaults, Time-limited Escrows, and Expiring Payments are all the case 1 type, and Improved Succinct Atomic Swap is of type 2.
+Examples where OP_BBV makes things more efficient:
+
+* Efficient Wallet Vaults
+* Cheaper time-limited escrows that are half as expensive as current escrow options.
+* Cheaper and simpler expiring Payments that allow a recipient to spend money for a limited period of time before reverting back to ownership by the sender.
+
+Example where OP_BBV makes things more robust:
+
+* Improved Succinct Atomic Swap, without needing any indefinite watching of the chain and without requiring backup of state other than a seed. 
 
 #### Efficient Wallet Vaults
 
-* Half as expensive as wallet vaults using OP_CHECKTEMPLATEVERIFY. If one day most on-chain transactions are from wallet vaults to lightning nodes (or vice versa), this could potentially reduce on-chain traffic by nearly 25%.
-
-The primary motivation for this opcode is to create efficient wallet vaults. See the *Motivation* section in the [parent BIP](README.md). In short, without some ability for spend-paths to expire, there is fundamentally no way to structure wallet vaults such that spending can be done in a single step.
+The primary motivation for this opcode is to create efficient wallet vaults that are half as expensive as wallet vaults using OP_CHECKTEMPLATEVERIFY. See the *Motivation* section in the [parent BIP](../README.md). In short, without some ability for spend-paths to expire, there is fundamentally no way to structure wallet vaults such that spending can be done in a single step. If one day most on-chain transactions are from wallet vaults to lightning nodes (or vice versa), OP_BBV could potentially reduce on-chain traffic by nearly 25%.
 
 #### Improved Succinct Atomic Swap
-
-* Simplified backup properties.
-* No need for indefinite chain watching.
 
 [Ruben Somsen's SAS](https://gist.github.com/RubenSomsen/8853a66a64825716f51b409be528355f) uses a pre-signing mechanism using adaptor signatures where a cross-chain atomic swap can be  completed with a single on-chain transaction on each chain. However, this mechanism requires one of the actors to watch the blockchain for a cheating attempt, so they can prevent the cheating attempt from succeeding. 
 
@@ -91,8 +91,6 @@ It is currently possible for someone to send to an output that is both spendable
 
 ## Specification
 
-### Option A - Tapscript Opcode
-
 OP_BEFOREBLOCKVERIFY (*OP_BBV for short*) redefines opcode OP_SUCCESS_80 (0x50). It does the following:
 
 * Pops the top of the stack and marks the transaction invalid if the block that the transaction is mined in has a height of greater than or equal to that value. This can allow a spend path to expire.
@@ -100,12 +98,6 @@ OP_BEFOREBLOCKVERIFY (*OP_BBV for short*) redefines opcode OP_SUCCESS_80 (0x50).
   * The top item on the stack is less than 0.
 * Failure modes. For all the following additional situations, the transaction is marked invalid:
   * The stack is empty.
-
-### Option B - Traditional Script Opcode
-
-OP_BEFOREBLOCKVERIFY (*OP_BBV for short*) redefines opcode OP_NOP5 (0xb4). It does the following:
-
-* The same as OP_BEFOREBLOCKVERIFY above but does not pop the stack. 
 
 ## Design
 
@@ -139,29 +131,7 @@ This could be done like the following, using two types of invalidity:
 
 ### Emulation with absolute and relative timelocks
 
-The following OP_BBV pattern can be emulated (note that this uses [transaction-sequence notation](https://github.com/fresheneesz/bip-efficient-bitcoin-vaults/blob/main/notation.md):
-
-```
-Address:
-* BBV Spend-path:     <requirements A> & bbv(x days)
-* Non-BBV Spend-path: <requirements B> & absTimelock(x days)
-```
-
-The emulation of the above pattern would look like:
-
-```
-Address:
-* BBV Spend-path: <requirements A>
-  -> BBV Test:
-     * Success: <requirements A> & relTimelock(1 days)
-     * Revoke: <requirements B> & absTimelock(x+1 days)
-// Either a relative or absolute timelock here will be equivalent, since the address must be sent to immediately for this emulation to work. 
-* Non-BBV Spend-path: <requirements B> & timelock(x days) 
-```
-
-* This will only work when the `Address` will have coins sent to it at the same time as the sequence of transactions is created, because time ticks for the absolute time lock regardless of when Address A is sent to. Semantically in this case, the absolute time lock of the Revoke spend-path can be thought of as a timelock relative to when the parent-output was confirmed (tho its really when the top level ancestor of the transaction tree was created).
-
-If `BBV Spend-path` is spent/confirmed before 1 day is up, the `Success` spend-path will be able to be spent first. If `BBV Spend-path` is spent/confirmed after 1 day is up, the `Revoke` spend-path will be able to spend first. In such a situation, its expected that cheaters will simply not spend using the `BBV Spend-path` if they won't be able to send the `Success` transaction subsequently. 
+OP_BBV can be emulated in at least [one specific case](emulated-bbv.md) where the transaction will be spent either as soon as as it is created or it must be spent at a specific time in the future. This, plus the fact that the pattern is very specific limits the usefulness of this emulation.
 
 ## Design Tradeoffs and Risks
 

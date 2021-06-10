@@ -38,7 +38,7 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
 
 ### Abstract
 
-This BIP proposes three new script opcodes: [OP_BEFOREBLOCKVERIFY](bip-beforeblockverify.md), [OP_PUSHOUTPUTSTACK](bip-pushoutputstack.md), and [OP_CONSTRAINDESTINATION](bip-constraindestination.md). These extensions have applications for efficient bitcoin vaults, among other things, which are described in the *Motivation* sections of this BIP and the opcode BIPs.
+This BIP proposes three new script opcodes: [OP_BEFOREBLOCKVERIFY](bbv/bip-beforeblockverify.md), [OP_PUSHOUTPUTSTACK](bip-pushoutputstack.md), and [OP_CONSTRAINDESTINATION](bip-constraindestination.md). These extensions have applications for efficient bitcoin vaults, among other things, which are described in the *Motivation* sections of this BIP and the opcode BIPs.
 
 ### Motivation
 
@@ -133,7 +133,7 @@ TBD
 
 Three opcodes are needed for the wallet vaults described in this BIP:
 
-* [OP_BEFOREBLOCKVERIFY](bip-beforeblockverify.md) - Verifies that the block the transaction is within has a block height below a particular number. This allows a spend-path to expire. 
+* [OP_BEFOREBLOCKVERIFY](bbv/bip-beforeblockverify.md) - Verifies that the block the transaction is within has a block height below a particular number. This allows a spend-path to expire. 
 * [OP_PUSHOUTPUTSTACK](bip-pushoutputstack.md) - Pushes data onto the "output stack" for outputs to a particular address. The "output stack" is a stack of data that will be pushed onto the stack after the witness script runs, but before the primary script runs. This allows a script writer to constrain behavior of a chained transaction output with witness data that was used a covenant input script.
 * [OP_CONSTRAINDESTINATION](bip-constraindestination.md) - Limits the destinations that an input can send to and limits the fee that the output can contribute to. This allows for the creation of covenant transactions. 
 

@@ -4,28 +4,18 @@ Using two slightly asymmetric transactions each using timelocks and [OP_BEFOREBL
 
 ## Comparison to SAS without OP_BBV
 
-* Pro: Neither party needs to store/backup any state that can't be recovered from the seed.
+* Pros: 
+  * Neither party needs to indefinitely watch the chain for a cheat transaction by the counterparty. 
+  * Neither party needs to store/backup any state that can't be recovered from the seed.
 * Cons:
   * Is not scriptless.
-  * Requires timelocks on both chains.
+  * Requires timelocks on both chains and op_bbv on one chain.
 
 [Ruben Somsen's SAS protocol](https://gist.github.com/RubenSomsen/8853a66a64825716f51b409be528355f) also only requires 2 transactions (1 per chain) in normal scenarios. However, it also requires one party to watch the blockchain for a potentially long period of time - until they want to spend the coins received in the swap. Also, backing up dynamic state is required to restore in the case of primary data loss because of the use of pre-signed transactions and exchanged secrets. 
 
 ## Transaction spend-paths
 
-The transactions could look like the following using [spend-path notation](notation.md):
-
-```
-AliceSig 
--> BTC to Bob: 
-   * Bob Success:  BobSig & timelock(1 day) 
-   * Alice Revoke: AliceSig & aliceSecret & bbv(1 day)
-
-BobSig 
--> ALTC to Alice: 
-   * Alice Success: AliceSig & timelock(2 days)
-   * Bob Revoke:    BobSig & aliceSecret & bbv(2 days) 
-```
+![SAS](D:\billysFile\IDEAS\Cryptocurrency\bip-efficient-bitcoin-vaults\SAS.png)
 
 Note that the `bbv(2 days)` in the `Bob Revoke` transaction isn't strictly necessary, since aliceSecret should never be exposed after 1 day, however it is nice to close out the possibility that Alice might leak aliceSecret sometime in the future before she has spent her coins, which could allow Bob to steal her funds. 
 
@@ -51,7 +41,7 @@ Note that the `bbv(2 days)` in the `Bob Revoke` transaction isn't strictly neces
 
 ### Notes on other hypothetical cases:
 
-* Alice can't spend the `Alice Revoke` transaction after 1 day, so `aliceSecret` shouldn't ever be reveled after that point, and therefore `Bob Revoke` also can't be spent after 1 day. 
+* Alice can't spend the `Alice Revoke` transaction after 1 day, so `aliceSecret` shouldn't ever be reveled after that point, and therefore `Bob Revoke` also can't be spent after 1 day. However, if `aliceSecret` was revealed, bob could steal the ALTC back
 
 ## Properties
 
