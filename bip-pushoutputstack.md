@@ -43,14 +43,14 @@ It does the following:
 3. It then pops `numberOfValues+1` values from the stack and interprets them as:
    * Top: `outputIndex`
    * Top - 1 - n: `valueN` where `n` is the zero-based index of a list of values.
-4. For the output identified by `outputIndex`, if `outputIndex` is a positive integer, the set of values that follow the `outputIndex` are pushed on a new conceptual stack called the "output stack" for that output/input pair. If `outputIndex` is `-1`, it pushes the values on the output stacks paired with the input for all outputs that send to the specified address.
+4. For the output identified by `outputIndex`, the set of values that follow the `outputIndex` are pushed on a new conceptual stack called the "output stack" for that output/input pair. 
 5. If there is more than one output to the `address`, loop back to step 3 for each additional output.
 6. When the transaction is validated, the output's output stacks for each input are compared to ensure they are identical. 
 7. Upon evaluation of that output as a UTXO used as an input to a subsequent transaction, after the witness is evaluated, the output stack associated with one of those inputs (it is arbitrary since they have all been validated to be identical) is pushed onto the execution stack such that the last item on the output stack becomes the first item on the stack (in other words, the output stack values pushed onto the execution stack will be in the same order as the output stack). 
 
 Reversion modes. For all the following situations, the opcode reverts to its OP_SUCCESS semantics:
 
-* The `numberOfValues` is less than `-1`.
+* The `numberOfValues` is not a positive number.
 
 Failure modes. For all the following situations, the transaction is marked invalid:
 
@@ -70,7 +70,7 @@ OP_PUSHOUTPUTSTACK (*OP_POS for short*) redefines opcode OP_NOP6 (0xb5). It does
 
 These opcodes provide a way to pass data from the witness used to spend an input to the created output. In the context of wallet vaults, this allows the wallet vault to be created without knowing the destination while also allowing a transaction spending a wallet vault output to commit to a destination with a single transactions. Using just OP_CTV by contrast, the destination is not committed to when sending coins from the vault, and a second transaction must be made that chooses the destination. 
 
-The opcodes specify an address rather than an outputId so that a script can ensure that particular data ends up being added for particular addresses that have expected scripts. OP_POS will push data onto the output stack for all outputs with a given address, because there should be no possibility that the user (or an attacker) can manipulate what data ends up in those locations on the stack. If the transaction creator could choose which outputs to add the data for, the user could choose to omit certain outputs and add their own data in those stack locations which could be used to steal funds from the output.
+The opcode requires an address rather than just outputIds so that a script can ensure that particular data ends up being added for particular addresses that have expected scripts. OP_POS requires that data is pushed onto the output stack for all outputs with a given address, because there should be no possibility that the user (or an attacker) can manipulate what data ends up in those locations on the stack. If the transaction creator could choose which outputs to add the data for, the user could choose to omit certain outputs and add their own data in those stack locations which could be used to steal funds from the output.
 
 ## Design Tradeoffs and Risks
 
@@ -87,6 +87,33 @@ One could imagine storing the output stack directly, however because of the abil
 One way to mitigate this issue is to instead re-evaluate the parent output script to regenerate the output stack before use in the subsequent transaction. That way only the parent output needs to be stored, rather than the data generated. The transaction need not be fully evaluated either the second time around. Any opcodes that verify things and don't add anything onto the stack could simply avoid most of their evaluation steps, for example. 
 
 Another way to mitigate this is to limit how much data can be pushed to output stacks in total. The limit could be set to something like 50kb. A third way to mitigate this is to add this output stack data into the calculation of a transaction's vbytes so that extra effort used in building the output stacks from various inputs would be paid for. 
+
+#### Polluting an output's stack
+
+In cases where an output's script is not designed to use additional output stack values or the particular set of output stack values given to it, this could render the output unspendable or spendable by someone other than the agreed upon recipient. This could be a problem in cases where software isn't built to recognize this error (and instead tells the user they have been paid) or in cases where a sender is actively trying to defraud the recipient. In the second case, the attack might go as follows:
+
+1. The attacker agrees to a transaction with the victim.
+2. The victim sends the attacker an output.
+3. The attacker recognizes the output as exploitable via this attack and sends a transaction that results in adding values on the output stack that result in the output being spendable by the attack, or unspendable if the attacker is simply trying to grief the victim. 
+4. The victim may be alerted by their software that the transaction has an unrecognizable or unexpected output stack, and ask the attacker about it.
+5. The attacker may claim they're using some new technology or that this error is normal and expected. They might have even notified the victim up front that this warning might be shown to them. 
+6. In some cases, the victim might be tricked and deliver the goods despite the warning only to find later they can't spend the output, or that it has already been spent (presumably by the attacker).
+
+This could be mitigated slightly by requiring a companion opcode that might hypothetically be named OP_LOADOUTPUTSTACK which can be run to put the output stack values on the execution stack. That way, any script that doesn't expect output stack values at all can cleanly avoid this risk/complication. However, this wouldn't work for addresses whose scripts do expect an output stack, in which case the problem still would exist for those kinds of addresses.
+
+Individual scripts could mitigate this by having some kind of validation of the output stack values, and if those values don't validate, separate spend paths could be used. However, this would bloat each script and might not be possible in many cases or may only cover a fraction of possible output stack pollution.
+
+This proposal recommends relying on clearly warning users of this problem so an attacker has a low likelihood of tricking them in a case where this can happen. Its likely to be very rare that an attacker could exploit this to steal money, however the griefing possibility is a lot more likely to be possible, if users ignore their software's warnings or if the software omits warnings in this case.
+
+#### Links inputs and outputs together
+
+Because this opcode requires specifying specific output IDs, that ties those outputs to the relevant input. This might be undesirable in coinjoins or similar constructions that seek to obfuscate the link between sources and destinations.
+
+#### PROBLEMS
+
+* If you allow a mechanism to push values on all outputs for a given address, its very likely that two vault inputs will conflict by pushing different values on the output stack for the same output.
+* Even if its enforced that all outputs for a given address get some output data, what output data they get would not be necessarily checked. An attacker could create an output that adds output data when spent (to all the relevant outputs) that are different than intended by the script and might allow circumventing the scripts protections. 
+  * A way to solve this is to couple this with OP_CD, where OP_CD would specify that the UTXO must be spent to a collection of given output Ids, and those output Ids could be reused in an OP_POS call to ensure that the outputs constrained to are all getting output data from the script.
 
 ## Copyright
 

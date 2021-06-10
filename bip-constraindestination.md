@@ -37,7 +37,7 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
 
 This BIP proposes a new tapscript opcode, OP_CONSTRAINDESTINATION, which can be used to constrain the destination the output may be spent to. This involves both specifying particular addresses the output is allowed to send coins to, as well as constraining the amount of the fee that output is allowed to contribute to. The extension has applications for efficient bitcoin vaults, among other things. 
 
-This could either be activated using a tapscript OP_SUCCESSx opcode or less efficiently as a traditional OP_NOPx opcode.
+This could be activated using a tapscript OP_SUCCESSx opcode.
 
 ### Motivation
 
@@ -75,30 +75,38 @@ TBD
 
 OP_CONSTRAINDESTINATION (*OP_CD for short*) redefines opcode OP_SUCCESS_82 (0x52). The opcode can be used to limit the destinations that and fee that a input can contribute to. It does the following: 
 
-1. The item on the top of the stack is popped and interpreted as a `numberOfAddresses`.
-2. The next few items on the stack, numbering `numberOfAddresses`, are popped and interpreted as the list `addressList`.
-3. The next item popped from the stack is interpreted as the positive integer `sampleWindowFactor`. This determines the sample window used to calculate the recent median fee. The window is described as a number of blocks:
+1. The top item on the stack is popped and interpreted as a `numberOfOutputs`.
+2. The next few items on the stack, numbering `2 * numberOfOutputs`, are popped and interpreted as the map `outputValues` which maps output IDs to an amount of bitcoin sent to that address from the UTXO.  For each pair, the output ID appears first, followed by the amount of bitcoin. 
+3. The next item on the stack is popped and interpreted as a `numberOfAddresses`.
+4. The next few items on the stack, numbering `numberOfAddresses`, are popped and interpreted as the list `addressList`.
+5. The next item popped from the stack is interpreted as the positive integer `sampleWindowFactor`. This determines the sample window used to calculate the recent median fee. The window is described as a number of blocks:
    * If `sampleWindowFactor` is 0, the `windowLength` is 6 blocks.
    * If `sampleWindowFactor` is 1, the `windowLength` is 30 blocks.
    * If `sampleWindowFactor` is 2, the `windowLength` is 300 blocks.
    * If `sampleWindowFactor` is 3, the `windowLength` is 3000 blocks.
-4. The next item popped from the stack is interpreted as an integer `feeFactor` (which can be positive of negative). If the number is -1, it is interpreted as -infinity (meaning the transaction can contribute nothing to the fee). 
-5. The `medianFeeRate` is defined as the median fee rate per vbyte for the most recent `windowLength` blocks.
-6. The input can contribute no more than `medianFeeRate * 2^feeFactor` of the fee, or the transaction will be marked invalid. Note that this is a limitation on the fee, not on the fee-rate. If `feeFactor` is -1, the input cannot contribute to the fee at all. For each relevant set of inputs constrained by OP_CD, ensure that `sum(inputs) - sum(constrainedOutputs) < sum(maxFeesForEachInput)`, otherwise mark the transaction as invalid. This check does not need to be performed on (irrelevant) sets of inputs where some group of those inputs shares no output address constraints (for outputs that exist in the transaction) with another non-overlapping group within that set. There is likely an optimal way to minimize the number of calculations that must be done for this, but that's left as future work.
+6. The next item popped from the stack is interpreted as an integer `feeFactor` (which can be positive of negative). If the number is -1, it is interpreted as -infinity (meaning the transaction can contribute nothing to the fee). 
+7. The `medianFeeRate` is defined as the median fee rate per vbyte for the most recent `windowLength` blocks. The `maxFeeContribution` is defined as `medianFeeRate * 2^feeFactor` of the fee. Note that this is a limitation on the fee, not on the fee-rate. If `feeFactor` is -1, `maxFeeContribution` is 0.
+8. Once all input scripts have been evaluated, for each output, verify that the amount of bitcoin claimed to have been contributed to that output in all OP_CD calls (from all input) sums to an amount smaller than the that output's value. 
 
 Reversion modes. For all the following situations, the opcode reverts to its OP_SUCCESS semantics:
 
-1. `numberOfAddresses` is less than 0.
-2. `sampleWindowFactor` is anything but a number 0 through 3.
-3. `feeFactor` is less than -1 or more than 16.
+1. `numberOfOutputs` is less than 0.
+2. `numberOfAddresses` is less than 0.
+3. `sampleWindowFactor` is anything but a number 0 through 3.
+4. `feeFactor` is less than -1 or more than 16.
 
 Failure modes. For all the following additional situations, the transaction is marked invalid:
 1. If the number of values on the stack after `numberOfAddresses` is popped is less than `numberOfAddresses`.
 2. If any address in `addressList` are invalid.
+3. If any output ID in the `outputValues` maps to an output whose destination isn't in `addressList`.
+4. If any output ID in the `outputValues` does not correspond to an output in the transaction.
+5. If the sum of bitcoin amount values in `outputValues` is greater than the UTXO's value.
+6. If the value of the output minus the sum of all bitcoin amounts in `outputValues` is greater than `maxFeeContribution`.
+7. If the sum of all given OP_CD contributions (from all inputs) for an output is greater than the value of the output.
 
 #### Opcode Example Call
 
-Given a median 300-block fee-rate of 10 sats/byte, the following is a script that limits the input to being spent to only address `D` and address `C` with a maximum fee of `10 * 2^5= 320 sats`.
+Given a median 300-block fee-rate of 10 sats/byte, the following is a script that limits the input to being spent to only address `D` and address `C` in outputs 0 (for 24345200 satoshi), 1 (for 329435400 satoshi), and 2 (for 12345 satoshi) with a maximum fee of `10 * 2^5= 320 sats`.
 
 ```
 5
@@ -106,82 +114,17 @@ Given a median 300-block fee-rate of 10 sats/byte, the following is a script tha
 C
 D
 2
+12345
+2
+329435400
+1
+24345200
+0
+3
 OP_CONSTRAINDESTINATION 
 ```
 
-#### Example Transactions
-
-For the following examples, I'll write this information using [javascript-like pseudocode](notation.md) as `OP_CD(sampleWindowFactor, feeFactor, [Address1, Address2,...])`. For example, the above example script would be written as `OP_CD(300 blocks, 7, [D, C])`. I'll also use 10 sats/byte as the 300-block median fee rate.
-
-Example Transaction A:
-
-* Inputs:
-  * One `input` of 1000 satoshi with `OP_CD(300 blocks, 5, [D, C])`
-* Outputs:
-  * 100 sat to destination address `D`
-  * 850 sat to change address `C`
-
-The `input` can contribute a maximum of `10 sats/byte * 2^5 = 320 sats` to the fee. Since there is only one input, that means the total transaction fee can be no more than 320 sats. The input specifies that it can only send money to addresses `D` and `C`. Since the transaction is sending a total of 950 sat to those addresses, the fee is 50 sats, which is less than 320, so the transaction is valid. 
-
-Example Transaction B:
-
-* Inputs:
-  * `inputA` with a value of 2000 satoshi.
-  * `inputB` of 1000 satoshi and an `OP_CD(300 blocks, 5, [D2, C2])`.
-* Outputs:
-  * 200 sats to destination address `D1`
-  * 1400 sats to change address `C1`
-  * 100 sats to destination address `D2`
-  * 550 sats to change address `C2`
-
-`inputB` can contribute a maximum of `10 sats/byte * 2^5 = 320 sats` to the fee. The transaction has a total fee of 700 sats. `inputB` specifies that it can only send money to addresses `D2` and `C2`. Since those two addresses would receive a total of 650 sats, the fee contributed by `inputB` is 350 sats, which is more than 320, so the transaction is invalid.
-
-Example Transaction C:
-
-* Inputs:
-  * `inputA` of 1200 satoshi and an `OP_CD(300 blocks, 5, [D1, C1])`.
-  * `inputB` of 1000 satoshi and an `OP_CD(300 blocks, 4, [D1])`.
-* Outputs:
-  * 900 sats to destination address `D1`.
-
-`inputA` can contribute a maximum of `10* 2^5 = 320 sats` to the fee. `inputA`'s minimum contribution to the fee is `inputA - D1 = 1200 - 900 = 300 sats`, which is less than 320 sats, and so the immediate evaluation of the operation succeeds.
-
-`inputB` can contribute a maximum of `10 * 2^4 = 160 sats` to the fee. `inputB`'s minimum contribution to the fee is `inputB - D1 = 1000 - 900 = 100 sats`, which is less than 160 sats and so the immediate evaluation of the operation succeeds.
-
-Once both scripts run, the last step is to check the sum of the inputs, outputs, and fee limits for all inputs that use OP_CONSTRAINDESTINATION. `inputA + inputB - D1 = 1200 sats + 1000 sats - 900 sats = 1300 sats`, which is larger than the sum of the maximum fees of `320 + 160 =  480 sats`, so the transaction is invalid.
-
-Example Transaction D:
-
-* Inputs:
-  * `inputA` of 1200 satoshi and an `OP_CD(300 blocks, 5, [D1, C1])`.
-  * `inputB` of 1000 satoshi and an `OP_CD(300 blocks, 4, [D1, D2])`.
-  * `inputC` of 7000 satoshi and an `OP_CD(300 blocks, 10, [D2])`.
-* Outputs:
-  * 900 sats to destination address `D1`
-  * 7000 sats to destination address `D2`
-
-Maximum fee contributions:
-
-* `inputA`:  `10 * 2^5 = 320 sats` 
-* `inputB`: `10 * 2^4 = 160 sats`
-* `inputC`: `10 * 2^10 = 10,240 sats`
-
-Sets to ensure the contributed fee is within constraints: 
-
-* `inputA`: `inputA - D1 = 1200 - 900 = 300 sat`. **OK**
-* `inputB`: `inputB - D1 - D2 = 1000 - 900 - 7000 = -6900 sats`. **OK**. Note that this value is negative because another input (`inputC`) contributed funds to D2, but it's input isn't considered in this step.
-* `inputC`: `inputC - D2 = 7000 - 7000 = 0`. **OK**
-* `inputA` & `inputB`: `inputA + inputB - D1 - D2 = 1200 + 1000 - 900 - 7000 = -5700`, which is less than their combined maximum fee of `320 + 160 = 480 sat`. **OK**
-* `inputB` & `inputC`: `inputB + inputC - D1 - D2 = 1000 + 7000 - 900 - 7000 = 100 sat`, which is less than their combined maximum fee of `160 + 10,240 = 10,400 sat`. **OK**
-* `inputA`, `inputB`, & `inputC`. `inputA + inputB + inputC - D1 - D2 = 1200 + 1000 + 7000 - 900 - 7000 = 1300 sats`, which is less than their combined maximum fee of `320 + 160 + 7000 = 7480 sats`.  **OK**
-
-The combination of `inputA` & `inputC` is not relevant because those inputs don't share possible destinations. 
-
-All those checks also succeed, so the transaction is valid.
-
-### Option B - Traditional Script Opcode
-
-The traditional script version of OP_CONSTRAINDESTINATION redefines opcode OP_NOP7 (0xb6). This does the same as OP_CONSTRAINDESTINATION above, except that it does not pop any stack items.
+For some walk-throughs of example transactions, take a look [here](op-cd-examples.md).
 
 ## Rationale
 
@@ -207,14 +150,18 @@ TBD
 
 ## Design Tradeoffs and Risks
 
+#### Specifying values sent to each output
+
+OP_CD requires specifying each output and the amount sent to the output in order to make it simple and efficient to calculate validity of OP_CD across multiple inputs that might share OP_CD destinations. Validity could be calculated without this specification, but it would require a potentially very large number of combinations being checked. Without specifying the amounts the UTXO will contribute for each output, a DOS attack vector is opened up where the attacker may create an intentionally difficult-to-verify transaction using many outputs each using OP_CD. An attacker might construct transactions with many inputs that share potential OP_CD destinations in different combinations. If there are enough combinations that must be checked, this might substantially slow down validation and open a DOS vector for attackers. 
+
+There are other mitigations to this (limit the number of combinations that need to be checked, or increase the vbyte weight of transactions with many combinations that need to be checked), however these mitigations either limit the use of the opcode or are complex and imperfect mitigations. Requiring the user to specify the solution the validation equation makes validation far simpler, at the expense of slightly larger transactions. 
+
 ####  Fungibility Risks with OP_CD
 
 With OP_CD, there is the possibility of creating covenants with unbounded chains of constraints. This could be used to put permanent restrictions on particular coins. However, its already possible to permanently restrict coins. A multisig setup could be created where the coins can only be spent if a particular key approves. I don't see much of a reason to prevent people from doing this kind of thing with their own money. Restricting its use can generally only reduce the value of the coins, so at worst its similar to provably burning coins. 
 
-#### Combination of OP_CD UTXOs DOS Vector
+#### Flexible output value claims
 
-An attacker might construct transactions with many inputs that share potential OP_CD destinations in different combinations. If there are enough combinations that must be checked, this might substantially slow down validation and open a DOS vector for attackers. 
-
-One mitigation for this would be to put a hard limit on the number of inputs that can exist in a transaction that require this combination multiplication (which is if they share some but not all constrained destinations). Another mitigation that could be done is to weight transactions more heavily the more combinations that need to be checked, so that more complex OP_CD transactions need to pay for that complexity. 
+As specified, the output claims in OP_CD calls for an output do not have to add up to the actual value sent to that output. For example, a transaction with a single input that has OP_CD claim to send 100 sats to an output, while the output actually receives 150 sats. This can still be valid as the claim doesn't (or sum of claims for an output don't) *exceed* the output value. If this flexibility is seen as a problem, it could be fixed. But it seems like a relatively safe thing to allow.
 
 #### Feature Redundancy

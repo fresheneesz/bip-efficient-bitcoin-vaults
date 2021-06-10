@@ -1,8 +1,21 @@
 # Wallet Vault 3
 
-This is a slight upgrade from [Wallet Vault 2](walletVault2.md). It allows spending change immediately without waiting for a timeout. 
+This is a slight upgrade from [Wallet Vault 2](walletVault2.md). It allows spending change immediately without waiting for a timeout. Note that the notation used on this page [can be found here](notation.md)
 
-These scripts use the same psuedo-code style and utility functions used by [Wallet Vault 1](walletVault1.md). 
+```
+Wallet Vault:
+* Immediate: a1Key & b1Key
+* Normal:    (a1Key || b1Key)
+-> Intermediate Address:
+   * Receiver Spend: destinationSig & timelock(5 days)
+   * Sender Cancel:  a1Key & b1Key & bbv(5 days)
+-> Change Address:
+   * Immediate:    change1Sig & change2Sig
+   * Normal:       change1Sig & change2Sig
+                     & (feeContributed(0) || locktime(5 days)
+     -> Intermediate Address &|| Change Address
+-> Intermediate Address &|| Change Address
+```
 
 ## Properties
 
@@ -13,7 +26,11 @@ These scripts use the same psuedo-code style and utility functions used by [Wall
 * Canceling each destination / change send either individually or together are both options: **false**. However, in the scenario of an attacker, this ability isn't needed. 
 * Finalization time: **5 days**. Sending to an address that expects to be able to spend the transaction earlier than this won't work. This is a fundamental limitation of a wallet vault.
 
-## Base Wallet Vault Address
+## Addresses
+
+The address scripts are written in [javascript-like pseudo-code](notation.md).
+
+### Base Wallet Vault Address
 
 The first address in a wallet vault would have the following spend paths:
 
@@ -38,7 +55,7 @@ function spendNormally(signature, outputAddressAssociations, maxFee):
   verify(checkSigs([[signature, publicKeyA1_], [signature, publicKeyB1_]]) >= 1)
 ```
 
-## Intermediate Address
+### Intermediate Address
 
 The `intermediateAddress_` referenced above is a static address who's scripts don't change depending on the wallet vault or its keys. In fact, all wallet vaults of this specific form would share this address. Its execution is differentiated only by the output stack values placed into it by the parent input's OP_POS execution. It would have the following spend paths:
 
@@ -67,7 +84,7 @@ function cancelTransaction(keyASig, publicKeyA, keyBSig, publicKeyB):
   verify(checkSigs(2, [[keyASig, publicKeyA], [keyBSig, publicKeyB]]) >= 2)
 ```
 
-## Change Address
+### Change Address
 
 The `changeAddress_` is another static address that doesn't contain any data unique to the wallet (just like `intermediateAddress_` above. It has two very similar spend paths, one 
 
@@ -112,26 +129,26 @@ The base wallet vault address in a wallet vault would have the following spend p
 
 ```
 Key spend-path:    
-  Aggregated multi-signature for: publicKeyA1_, publicKeyB1_
+  Aggregated multi-signature for: publicKeyA1, publicKeyB1
   
 Script spend-path: 
   spendNormally(512x, ....., ..., ..., ...)
   
 pseudofunction spendNormally(maxFee, ....., ..., ..., ...):
   # Push each destination addresses onto the output stack for the associated output.
-  <intermediateAddress_, 1, ..., ..., .....> PUSHOUTPUTSTACK
+  <intermediateAddress, 1, ..., ..., .....> PUSHOUTPUTSTACK
   
-  # Push each return addresses onto the output stack for outputs to intermediateAddress_.
-  <intermediateAddress_, 2, -1, publicKeyA2Hash_, publicKeyB2Hash_>
+  # Push each return addresses onto the output stack for outputs to intermediateAddress.
+  <intermediateAddress, 2, -1, publicKeyA2Hash, publicKeyB2Hash>
   PUSHOUTPUTSTACK
   
-  # Ensure that the input is spent only to intermediateAddress_ or changeAddress_ with 
+  # Ensure that the input is spent only to intermediateAddress or changeAddress with 
   # a maximum fee of 512 times the 300-block median fee-per-byte.
-  <2, intermediateAddress_, changeAddress_, 300 blocks, maxFee> CONSTRAINDESTINATION
+  <2, intermediateAddress, changeAddress, 300 blocks, maxFee> CONSTRAINDESTINATION
   
   # Require a signature for 1 of the 2 keys.
-  <publicKeyA1_, ...> CHECKSIG
-  <publicKeyB1_, ...> CHECKSIGADD
+  <publicKeyA1, ...> CHECKSIG
+  <publicKeyB1, ...> CHECKSIGADD
   <1, ...> LESSTHANOREQUAL
 ```
 
@@ -140,23 +157,23 @@ To spend this script you would use one of the following patterns:
 1. Key spend-path witness: `keyA1B1Sig`
 2. Script spend-path witness:  `keySig DUP ... destinationAddressN outputNId`, where
    * the number of address-outputId pairs equals the number of outputs.
-   * `keySig` is a signature for either `publicKeyA1_` or `publicKeyB1_`.
+   * `keySig` is a signature for either `publicKeyA1` or `publicKeyB1`.
 
 In the script spend-path, each output's output stack would have an output stack appended to it:
 
-* `intermediateAddress_` outputs: 
-  * `destinationAddressN publicKeyA2Hash_ publicKeyB2Hash_`.
-* `intermediateChangeAddress_` outputs: 
-  * `changeAddress_`
+* `intermediateAddress` outputs: 
+  * `destinationAddressN publicKeyA2Hash publicKeyB2Hash`.
+* `intermediateChangeAddress` outputs: 
+  * `changeAddress`
 
-The `intermediateAddress_` referenced above is an address with the following spend paths:
+The `intermediateAddress` referenced above is an address with the following spend paths:
 
 ```
 Key spend-path: 
   <none>
   
 Script spend-path 1: 
-  # Drop publicKeyA2Hash_ and publicKeyB2Hash_ that were put on the stack
+  # Drop publicKeyA2Hash and publicKeyB2Hash that were put on the stack
   # from the output stack.
   2DROP
 
@@ -176,7 +193,7 @@ Script spend-path:
   <5 days> BEFOREBLOCKVERIFY
   
   # Move three values to be in the order:
-  # [publicKeyA, publicKeyA2Hash_, publicKeyB, publicKeyB2Hash_].
+  # [publicKeyA, publicKeyA2Hash, publicKeyB, publicKeyB2Hash].
   2ROT
   ROT
   
@@ -184,7 +201,7 @@ Script spend-path:
   verifyPublicKey(..., ...)
   <...> TOALTSTACK
   
-  # Move the publicKeyB2Hash_ to before publicKeyB
+  # Move the publicKeyB2Hash to before publicKeyB
   SWAP
   
   # Verify publicKeyB.
@@ -215,7 +232,7 @@ To spend this script you would use one of the following patterns:
 1. Script spend-path 1 witness:  `destinationKeySig destinationPublicKey`
 3. Script spend-path 2 witness:  `publicKeyBNSig publicKeyA publicKeyB publicKeyANSig`
 
-The `changeAddress_` referenced above is an address with the following spend paths:
+The `changeAddress` referenced above is an address with the following spend paths:
 
 ```
 Key spend-path: 
@@ -241,4 +258,4 @@ To spend this script you would use one of the following patterns:
 1. Key spend-path witness: `changePublickeyA1B1Sig`
 2. Script spend-path witness:  `changeKeySig DUP ... destinationAddressN outputNId`, where
    * the number of address-outputId pairs equals the number of outputs.
-   * `keySig` is a signature for either `changePublicKeyA1_` or `changePublicKeyB1_`.
+   * `keySig` is a signature for either `changePublicKeyA1` or `changePublicKeyB1`.

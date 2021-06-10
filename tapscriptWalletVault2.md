@@ -2,8 +2,6 @@
 
 This is a major upgrade from [Wallet Vault 1](walletVault1.md). Its still quite simple, but allows sending to an arbitrary number of destinations and allows omitting a change address. The only downside vs Wallet Vault 1 is that change and destinations can't be cancelled independently without exposing active public keys (and thus losing quantum resistance). 
 
-These scripts use the same psuedo-code style and utility functions used by [Wallet Vault 1](walletVault1.md). 
-
 ## Properties
 
 * Can send to arbitrarily many destinations in a transaction: true
@@ -14,7 +12,11 @@ These scripts use the same psuedo-code style and utility functions used by [Wall
 * Canceling each destination / change send either individually or together are both options: **false**. However, in the scenario of an attacker, this ability isn't needed. 
 * Finalization time: **5 days**. Sending to an address that expects to be able to spend the transaction earlier than this won't work. This is a fundamental limitation of a wallet vault.
 
-## Base Wallet Vault Address
+## Addresses
+
+The scripts are written in [javascript-like pseudo-code](notation.md).
+
+### Base Wallet Vault Address
 
 The first address in a wallet vault would have the following spend paths:
 
@@ -37,7 +39,7 @@ function spendNormally(signature, outputAddressAssociations):
   verify(checkSigs([[signature, publicKeyA1_], [signature, publicKeyB1_]]) >= 1)
 ```
 
-## Intermediate Address
+### Intermediate Address
 
 The `intermediateAddress_` referenced above is a static address who's scripts don't change depending on the wallet vault or its keys. In fact, all wallet vaults of this specific form would share this address. Its execution is differentiated only by the output stack values placed into it by the parent input's OP_POS execution. It would have the following spend paths:
 
@@ -99,40 +101,40 @@ Key spend-path:
   
 Script spend-path: 
   # Push each destination addresses onto the output stack for the associated output.
-  <intermediateAddress_, 1, ..., ..., .....> PUSHOUTPUTSTACK
+  <intermediateAddress, 1, _, _, _> PUSHOUTPUTSTACK
   
   # Push each return addresses onto the output stack for outputs to intermediateAddress_.
-  <intermediateAddress_, 2, -1, publicKeyA2Hash_, publicKeyB2Hash_> PUSHOUTPUTSTACK
+  <intermediateAddress, 2, -1, publicKeyA2Hash_, publicKeyB2Hash_> PUSHOUTPUTSTACK
   
   # Ensure that the input is spent only to intermediateDestination or changeAddress1 with 
   # a maximum fee of 512 times the 300-block median fee-per-byte.
   <1, intermediateAddress_, 300 blocks, 512x> CONSTRAINDESTINATION
   
   # Require a signature for 1 of the 2 keys.
-  <publicKeyA1_, ...> CHECKSIG
-  <publicKeyB1_, ...> CHECKSIGADD
-  <1, ...> LESSTHANOREQUAL
+  <publicKeyA1, _> CHECKSIG
+  <publicKeyB1, _> CHECKSIGADD
+  <1, _> LESSTHANOREQUAL
 ```
 
 To spend this script you would use one of the following patterns:
 
 1. Key spend-path witness: `keyA1B1Sig`
 2. Script spend-path scriptSig:  `keySig DUP ... destinationAddressN outputNId`, where
-   * the number of address-outputId pairs equals the number of outputs.
-   * `keySig` is a signature for either `publicKeyA1_` or `publicKeyB1_`.
+   * the number of address-outputId pairs (`...`)equals the number of outputs.
+   * `keySig` is a signature for either `publicKeyA1` or `publicKeyB1`.
 
 In the script spend-path, each output's scriptPubKey would have an output stack appended to it:
 
-* `intermediateAddress_` script spend-path: `destinationAddressN publicKeyB2Hash_ publicKeyA2Hash_`.
+* `intermediateAddress` script spend-path: `destinationAddressN publicKeyB2Hash publicKeyA2Hash`.
 
-The `intermediateAddress_` referenced above is an address with the following spend paths:
+The `intermediateAddress` referenced above is an address with the following spend paths:
 
 ```
 Key spend-path: 
   <none>
   
 Script spend-path 1: 
-  # Drop publicKeyA2Hash_ and publicKeyB2Hash_ that were put on the stack from the output stack.
+  # Drop publicKeyA2Hash and publicKeyB2Hash that were put on the stack from the output stack.
   2DROP
 
   # Transaction creating this output must have been confirmed at LEAST 5 days ago.
@@ -141,46 +143,46 @@ Script spend-path 1:
   
   # Verify the `destinationPublicKey` against the `destinationAddress` put on the
   # stack by OP_CD in the transaction that created this output.
-  verifyPublicKey(..., ...);
+  verifyPublicKey(_, _);
   
   # Uses the passed in destinationPublicKey.
-  <..., ...> CHECKSIG  
+  <_, _> CHECKSIG  
   
 Script spend-path 2:
   # Transaction creating this output must have been confirmed at MOST 5 days ago.
   <5 days> BEFOREBLOCKVERIFY
   
-  # Move three values in order: [publicKeyA, publicKeyA2Hash_, publicKeyB, publicKeyB2Hash_].
+  # Move three values in order: [publicKeyA, publicKeyA2Hash, publicKeyB, publicKeyB2Hash].
   2ROT
   ROT
   
   # Verify publicKeyA and save it to the alt stack.
-  verifyPublicKey(..., ...)
-  <...> TOALTSTACK
+  verifyPublicKey(_, _)
+  <_> TOALTSTACK
   
   # Move the publicKeyB2Hash_ to before publicKeyB
   SWAP
   
   # Verify publicKeyB.
-  verifyPublicKey(..., ...)
+  verifyPublicKey(_, _)
   
   # Remove destinationAddressN that came from the output stack. 
   NIP
   
   # Require a 2-of-2 signature for two return keys. 
-  <..., ...> CHECKSIG
+  <_, _> CHECKSIG
   FROMALTSTACK
-  <..., ..., ...> CHECKSIGADD
-  <2, ...> NUMEQUAL
+  <_, _, _> CHECKSIGADD
+  <2, _> NUMEQUAL
   
 # Top-of-stack param is the addess, the second param is the public key. Hashes are passed to
 # the script (via OP_POSS from the previous transaction) rather than raw public keys to
 # retain quantum resistance. 
-pseudofunction verifyPublicKey(..., ...):
+pseudofunction verifyPublicKey(_, _):
   OVER
-  <...> SHA256
-  <...> RIPEMD160
-  <..., ...> NUMEQUALVERIFY
+  <_> SHA256
+  <_> RIPEMD160
+  <_, _> NUMEQUALVERIFY
 ```
 
 To spend this script you would use one of the following patterns:
