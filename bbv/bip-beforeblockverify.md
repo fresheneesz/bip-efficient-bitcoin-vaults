@@ -108,7 +108,7 @@ OP_BEFOREBLOCKVERIFY (*OP_BBV for short*) redefines opcode OP_SUCCESS_80 (0x50).
 
 ## Design
 
-TBD
+*WIP*
 
 ### Transaction Evaluation
 
@@ -118,6 +118,26 @@ There are two distinct types of invalidity for this opcode:
 2. In the case of evaluating a transaction for inclusion into the mempool, the opcode should instead be treated as specifying a conditional validity. Record should be kept of the transaction and its boundary condition as long as the node might need to use the transaction, which are in the following cases:
    1. The specified block height has not been reached
    2. The specified block height has been reached, but a reorg is still possible with a significant likelihood.
+
+### Mempool Handling
+
+Mempool handling must consider a few possibilities:
+
+* A transaction may expire and should be removed from the mempool at that time, 
+* The transaction may expire before it is profitable to mine,
+* Other mutually exclusive transactions may already be in the mempool that are valid until a different block height.
+
+An efficient way to handle evicting transactions from the mempool upon expiry would be to keep a data structure that maps block height to transactions that will expire at that block height. Upon admission to the mempool, a miner would check the transaction for an OP_BBV requirement during validation of the transaction and would write a record of the transaction into the data structure (the map). On each newly mined block, each miner would check the map for transactions that expire upon that block and remove them from the mempool. This should be a fairly light data structure, requiring only an integer mapping to a list of pointers. The operations on this should all be quite fast: to insert into the map upon validation of each transaction, to evaluate on each new block, and to remove from the map when possible. This could also be done using a list of OP_BBV transactions ordered by expiry block, however inserting and removing into that list would be more expensive than using a map. 
+
+Evaluating OP_BBV transactions for mempool inclusion has additional considerations in comparison to a normal transaction. Because it might expire, it might expire before it is profitable to mine. In order to evaluate this, a node should have a way to estimate the likelihood the transaction will be profitable to mine within the span of blocks the transaction is valid for. This likelihood, once calculated, can then be multiplied by the transaction's fee-rate to get an "expected fee-rate" of the transaction that can then be compared against the fee-rates of other normal transactions in order to determine whether inclusion and propagation are appropriate. 
+
+This isn't actually fundamentally different from any other transaction. Any transaction has an expected value, and a probability can be estimated for how likely that transaction is to be profitable to mine. Resource constrained profit seeking miners should only keep the transactions that are most likely to be profitable to mine and honest  nodes should avoid propagating transactions that won't be accepted by most miners. However, OP_BBV would be slightly more complicated. While sorting transactions by likelihood of being profitable mine is identical to sorting by fee-rate, this is not true for transactions spent via a spend path using OP_BBV. While a normal transaction's expected return doesn't change over time, an OP_BBV transaction will change its expected return as it gets closer to expiring. 
+
+A node could re-evaluate the expected return for each OP_BBV transaction periodically in the same way it was originally calculated. If it is determined this is too expensive or complex to do, a simpler model of linearly declining expected value could be used instead, with less frequent periodic corrections using the more accurate estimate calculation. 
+
+Consideration is also needed for transactions that are already in the mempool with a different expiration block height. In the case a transaction has both an earlier or equal expiration and a lower or equal fee-rate, that transaction can be either evicted from the mempool or rejected from inclusion. In the case a transaction has a later expiration date and a lower (or equal) fee, neither transaction is the obvious winner. In such a case, the expected return calculation described in the above two paragraphs can be used to compare those transactions and choose the higher value one. Like RBF transactions, it would be prudent to only accept new transactions to the mempool if the marginal value in comparison to the existing transaction is greater than a threshold, to prevent replacement-transaction spam. It may be acceptable for a node to accept multiple mutually-exclusive OP_BBV transactions into the mempool if the number is limited to only a handful (eg 3) and if the higher-value transaction has a lower enough probability of being mined. 
+
+Note that because OP_CHECKSEQUENCEVERIFY transactions are not added to mempools or propagated through the network until they become valid, there is no additional complexity that arises from interactions between OP_BBV and OP_CSV.
 
 ## Rationale
 
@@ -151,24 +171,6 @@ Since OP_BBV can cause a valid signed transaction to become invalid at some poin
 
 In the past, objections have been given for any possibility for transactions to expire on these grounds. I asked a question about this [on the Bitcoin stack exchange](https://bitcoin.stackexchange.com/questions/96366/what-are-the-reasons-to-avoid-spend-paths-that-become-invalid-over-time-without) but haven't gotten any answers. I also had [a conversation](https://www.reddit.com/r/Bitcoin/comments/gwjr8p/i_am_jeremy_rubin_the_author_of_bip119_ctv_ama/ft2die9?utm_source=share&utm_medium=web2x&context=0) with Jeremy Rubin about this. I am very curious to know what other arguments against doing this there are. I will address those concerns here to the best of my knowledge.
 
-##### Mempool Handling
-
-Mempool handling must consider a few possibilities:
-
-* A transaction may expire and should be removed from the mempool at that time, 
-* The transaction may expire before it is profitable to mine,
-* Other mutually exclusive transactions may already be in the mempool that are valid until a different block height.
-
-An efficient way to handle evicting transactions from the mempool upon expiry would be to keep a data structure that maps block height to transactions that will expire at that block height. Upon admission to the mempool, a miner would check the transaction for an OP_BBV requirement during validation of the transaction and would write a record of the transaction into the data structure (the map). On each newly mined block, each miner would check the map for transactions that expire upon that block and remove them from the mempool. This should be a fairly light data structure, requiring only an integer mapping to a list of pointers. The operations on this should all be quite fast: to insert into the map upon validation of each transaction, to evaluate on each new block, and to remove from the map when possible. This could also be done using a list of OP_BBV transactions ordered by expiry block, however inserting and removing into that list would be more expensive than using a map. 
-
-Evaluating OP_BBV transactions for mempool inclusion has additional considerations in comparison to a normal transaction. Because it might expire, it might expire before it is profitable to mine. In order to evaluate this, a node should have a way to estimate the likelihood the transaction will be profitable to mine within the span of blocks the transaction is valid for. This likelihood, once calculated, can then be multiplied by the transaction's fee-rate to get an "expected fee-rate" of the transaction that can then be compared against the fee-rates of other normal transactions in order to determine whether inclusion and propagation are appropriate. 
-
-This further complicates mempool handling because, while a normal transaction's expected fee-rate doesn't change over time, an OP_BBV transaction will change its expected fee-rate as it gets closer to expiring. A node could re-evaluate the expected fee-rate for each OP_BBV transaction periodically in the same way it was originally calculated. If it is determined this is too expensive to do, a simpler model of linearly declining expected value could be used instead, with less frequent periodic corrections using the more accurate estimate calculation. 
-
-Consideration is also needed for transactions that are already in the mempool with a different expiration block height. In the case a transaction has both an earlier or equal expiration and a lower or equal fee-rate, that transaction can be either evicted from the mempool or rejected from inclusion. In the case a transaction has a later expiration date and a lower (or equal) fee, neither transaction is the obvious winner. In such a case, the expected fee-rate calculation described in the above two paragraphs can be used to compare those transactions and choose the higher value one. Like RBF transactions, it would be prudent to only accept new transactions to the mempool if the marginal value in comparison to the existing transaction is greater than a threshold, to prevent replacement-transaction spam. It may be acceptable for a node to accept multiple mutually-exclusive OP_BBV transactions into the mempool if the number is limited to only a handful (eg 3) and if the higher-value transaction has a lower enough probability of being mined. 
-
-Note that because OP_CHECKSEQUENCEVERIFY transactions are not added to mempools or propagated through the network until they become valid, there is no additional complexity that arises from interactions between OP_BBV and OP_CSV.
-
 ##### Reorgs
 
 Satoshi said the following [here](https://bitcointalk.org/index.php?topic=1786.msg22119#msg22119):
@@ -188,7 +190,7 @@ I've asked [a question about  how reorgs are handled](https://bitcoin.stackexcha
 
 Using OP_BBV, someone could spam the mempool with valid transactions that expire in the next block. If the spammer waits for that block to be mined before broadcasting, they could spam the network with transactions that are no longer valid among nodes who have not received the new block yet.
 
-An mitigation to this is to simply reject transactions that expire in the next block. However, the attacker may then create transactions with a fee too low to likely get into 2 blocks from now. Some evaluation of the likelihood of how quickly the transaction can get into a block is needed, and this is discussed in the *Mempool Handling* section above. 
+A mitigation to this is to simply reject transactions that expire in the next block. However, the attacker may then create transactions with a fee too low to likely get into 2 blocks from now. Some evaluation of the likelihood of how quickly the transaction can get into a block is needed, and this is discussed in the *Mempool Handling* section above. There may be significant tradeoffs between accuracy of this likelihood evaluation between accuracy and resource usage. 
 
 ## Copyright
 
