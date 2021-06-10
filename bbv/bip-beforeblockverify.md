@@ -82,7 +82,9 @@ It is currently possible for someone to send to an output that is both spendable
 
 #### Reversible Payments
 
-A reversible payment is one where Alice sends Bob a transaction, but Bob can't spend for a period of time and during that time, Alice can choose to reverse the transaction. This is basically the opposite of expiring payments. These can give users the ability to reverse a transaction where they made a mistake, eg in who they sent to or the amount sent. If the OP_BBV spend path has more complex requirements, this can enable other interesting things, like the time-limited escrow discussed below.
+A reversible payment is one where Alice sends Bob a transaction, but Bob can't spend for a period of time and during that time, Alice can choose to reverse the transaction. This is basically the opposite of expiring payments. These can give users the ability to reverse a transaction where they made a mistake, eg in who they sent to or the amount sent. This can currently be achieved by doing two transactions: however this doubles the cost of the transaction. OP_BBV enables reversible payments with a single transaction and consequently very little additional cost. 
+
+If the OP_BBV spend path has more complex requirements, this can make other interesting things cheaper, like the time-limited escrow discussed below.
 
 #### Time-limited Escrow
 
