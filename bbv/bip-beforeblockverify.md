@@ -171,7 +171,13 @@ Since OP_BBV can cause a valid signed transaction to become invalid at some poin
 
 In the past, objections have been given for any possibility for transactions to expire on these grounds. I asked a question about this [on the Bitcoin stack exchange](https://bitcoin.stackexchange.com/questions/96366/what-are-the-reasons-to-avoid-spend-paths-that-become-invalid-over-time-without) but haven't gotten any answers. I also had [a conversation](https://www.reddit.com/r/Bitcoin/comments/gwjr8p/i_am_jeremy_rubin_the_author_of_bip119_ctv_ama/ft2die9?utm_source=share&utm_medium=web2x&context=0) with Jeremy Rubin about this. I am very curious to know what other arguments against doing this there are. I will address those concerns here to the best of my knowledge.
 
-##### Reorgs
+##### Spam Risk
+
+Using OP_BBV, someone could spam the mempool with valid transactions that expire in the next block. If the spammer waits for that block to be mined before broadcasting, they could spam the network with transactions that are no longer valid among nodes who have not received the new block yet.
+
+A mitigation to this is to simply reject transactions that expire in the next block. However, the attacker may then create transactions with a fee too low to likely get into 2 blocks from now. Some evaluation of the likelihood of how quickly the transaction can get into a block is needed, and this is discussed in the *Mempool Handling* section above. There may be significant tradeoffs between accuracy of this likelihood evaluation between accuracy and resource usage. 
+
+##### Reorg Safety
 
 Satoshi said the following [here](https://bitcointalk.org/index.php?topic=1786.msg22119#msg22119):
 
@@ -186,13 +192,9 @@ However, if a person waited for the standard 6 blocks before accepting a transac
 
 It is true that there are situations where people may quite safely accept transactions with a single confirmation, since there are many kind of transactions that aren't good targets for a double spending attack. However, in such scenarios, it would be simple for the software to instruct the user that the transaction has not finalized yet in the case that transaction may expire in the next 6 blocks.
 
+Greg Maxwell [mused that](https://www.reddit.com/r/Bitcoin/comments/3hl96a/is_there_a_reverse_of_the_nlocktime_op/cu8k1zp?utm_source=share&utm_medium=web2x&context=3) a quieting period before an output in a transaction with an input that uses an opcode like this might mitigate some of the safety concerns around this. 
+
 I've asked [a question about  how reorgs are handled](https://bitcoin.stackexchange.com/questions/105525/how-do-nodes-handle-long-reorgs) on the Bitcoin stack exchange. I would expect that nodes need to revert their UTXO set to the point at which the chains diverged, re-admit transactions to the mempool from blocks evaluated after that divergence point, then re-evaluate the blocks. This perhaps might end with evicting conflicting transactions from the mempool after evaluation has completed. None of this process sounds like OP_BBV transactions would make a reorg substantially more difficult for nodes or for users sending transactions. 
-
-##### Spam Risk
-
-Using OP_BBV, someone could spam the mempool with valid transactions that expire in the next block. If the spammer waits for that block to be mined before broadcasting, they could spam the network with transactions that are no longer valid among nodes who have not received the new block yet.
-
-A mitigation to this is to simply reject transactions that expire in the next block. However, the attacker may then create transactions with a fee too low to likely get into 2 blocks from now. Some evaluation of the likelihood of how quickly the transaction can get into a block is needed, and this is discussed in the *Mempool Handling* section above. There may be significant tradeoffs between accuracy of this likelihood evaluation between accuracy and resource usage. 
 
 ## Copyright
 
