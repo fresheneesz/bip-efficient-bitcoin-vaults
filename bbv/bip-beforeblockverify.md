@@ -177,12 +177,14 @@ Satoshi said the following [here](https://bitcointalk.org/index.php?topic=1786.m
 
 > In the event of a block chain reorg after a segmentation, transactions need to be able to get into the chain in a later block. The transaction and all its dependents would become invalid. This wouldn't be fair to later owners of the coins who weren't involved in the time limited transaction.
 
-However, if a person waited for the standard 6 blocks before accepting a transaction as confirmed, there should be no significantly likely scenario where any finalized transaction needs to be reverted. If 6 blocks is indeed a safe threshold for finalization, then any transaction that has 5 or fewer confirmations should be considered fair game for reversal. It seems unreasonable to call this "unfair", in fact it is rather the standard assumption.  It seems Peter Todd [had similar thinking](https://lists.linuxfoundation.org/pipermail/bitcoin-dev/2013-July/002939.html).
+However, if a person waited for the standard 6 blocks before accepting a transaction as confirmed, there should be no significantly likely scenario where any finalized transaction needs to be reverted. If 6 blocks is indeed a safe threshold for finalization, then any transaction that has 5 or fewer confirmations should be considered fair game for reversal. It seems unreasonable to call this "unfair", in fact it is rather the standard assumption. It seems Peter Todd [had similar thinking](https://lists.linuxfoundation.org/pipermail/bitcoin-dev/2013-July/002939.html).
 
 > Satoshi was worried that in the event of a re-org long chains of
 > transactions could become invalid and thus impossible to include in the
 > blockchain again, however that's equally possibly through tx mutability
 > or double-spends;(1) I don't think it's a valid concern in general.
+
+It is true that there are situations where people may quite safely accept transactions with a single confirmation, since there are many kind of transactions that aren't good targets for a double spending attack. However, in such scenarios, it would be simple for the software to instruct the user that the transaction has not finalized yet in the case that transaction may expire in the next 6 blocks.
 
 I've asked [a question about  how reorgs are handled](https://bitcoin.stackexchange.com/questions/105525/how-do-nodes-handle-long-reorgs) on the Bitcoin stack exchange. I would expect that nodes need to revert their UTXO set to the point at which the chains diverged, re-admit transactions to the mempool from blocks evaluated after that divergence point, then re-evaluate the blocks. This perhaps might end with evicting conflicting transactions from the mempool after evaluation has completed. None of this process sounds like OP_BBV transactions would make a reorg substantially more difficult for nodes or for users sending transactions. 
 
