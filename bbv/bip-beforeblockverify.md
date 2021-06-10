@@ -48,8 +48,9 @@ OP_BBV can be used to make numerous kinds of transactions either:
 Examples where OP_BBV makes things more efficient:
 
 * Efficient Wallet Vaults
-* Cheaper time-limited escrows that are half as expensive as current escrow options.
 * Cheaper and simpler expiring Payments that allow a recipient to spend money for a limited period of time before reverting back to ownership by the sender.
+* Reversible payments.
+* Cheaper time-limited escrows that are half as expensive as current escrow options.
 
 Example where OP_BBV makes things more robust:
 
@@ -73,6 +74,16 @@ One application would be to have commitment transactions expire after a period o
 
 Other applications to the lightning network should be explored.
 
+#### Expiring Payments
+
+If Alice send Bob some bitcoin but Bob has lost access to that address, the coins may be lost forever. OP_BBV can be used to construct a transaction that sends to an output where Bob must redeem the coins in that output by creating a transaction that spends the output within a time limit. If Bob has lost access to that address, Alice can retrieve the funds for reuse. This was originally described by ByteCoin [on bitcointalk.org](https://bitcointalk.org/index.php?topic=1786.msg21998#msg21998). 
+
+It is currently possible for someone to send to an output that is both spendable by Alice and Bob, where Alice expects Bob to redeem the coins. If Bob doesn't, Alice can still retrieve the coins. The downside of currently available mechanisms is that either Alice or Bob must retrieve the coins to complete the transaction, whereas with OP_BBV Alice can simply leave the coins there until she wants to spend it.
+
+#### Reversible Payments
+
+A reversible payment is one where Alice sends Bob a transaction, but Bob can't spend for a period of time and during that time, Alice can choose to reverse the transaction. This is basically the opposite of expiring payments. These can give users the ability to reverse a transaction where they made a mistake, eg in who they sent to or the amount sent. If the OP_BBV spend path has more complex requirements, this can enable other interesting things, like the time-limited escrow discussed below.
+
 #### Time-limited Escrow
 
 * Half as expensive as currently possible escrow setups. 
@@ -82,12 +93,6 @@ An escrow can be set up such that the payer pays a 2-of-3 multisig address where
 OP_BBV could be used to implement more efficient time-limited escrows, where the sender would create a transaction output that is spendable if signed before a certain block height by both the sender and escrow service, and after that block height the output could only be spent by the end recipient. This has the benefits of only requiring one transaction for a recipient to receive exclusive ownership over the funds.
 
 Admittedly, this application of OP_BBV has not been studied to any depth and is just a concept.
-
-#### Expiring Payments
-
-If Alice send Bob some bitcoin but Bob has lost access to that address, the coins may be lost forever. OP_BBV can be used to construct a transaction that sends to an output where Bob must redeem the coins in that output by creating a transaction that spends the output within a time limit. If Bob has lost access to that address, Alice can retrieve the funds for reuse. This was originally described by ByteCoin [on bitcointalk.org](https://bitcointalk.org/index.php?topic=1786.msg21998#msg21998). 
-
-It is currently possible for someone to send to an output that is both spendable by Alice and Bob, where Alice expects Bob to redeem the coins. If Bob doesn't, Alice can still retrieve the coins. The downside of currently available mechanisms is that either Alice or Bob must retrieve the coins to complete the transaction, whereas with OP_BBV Alice can simply leave the coins there until she wants to spend it.
 
 ## Specification
 
