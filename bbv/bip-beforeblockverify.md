@@ -100,7 +100,8 @@ Admittedly, this application of OP_BBV has not been studied to any depth and is 
 
 OP_BEFOREBLOCKVERIFY (*OP_BBV for short*) redefines opcode OP_SUCCESS_80 (0x50). It does the following:
 
-* Pops the top of the stack and marks the transaction invalid if the block that the transaction is mined in has a height of greater than or equal to that value. This can allow a spend path to expire.
+* Pops the top of the stack and interprets it as `relativeBlockHeight`. `absoluteBlockHeight = UTXO confirmation block + numberOfBlocks`.
+* Then it marks the transaction invalid if the block that the transaction is being evaluated for has a height of greater than or equal to that `absoluteBlockHeight`. This can allow a spend path to expire.
 * Reversion modes. For all the following situations, the opcode reverts to its OP_SUCCESS semantics:
   * The top item on the stack is less than 0.
 * Failure modes. For all the following additional situations, the transaction is marked invalid:
