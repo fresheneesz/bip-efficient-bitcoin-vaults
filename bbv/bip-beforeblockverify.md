@@ -78,11 +78,13 @@ Other applications to the lightning network should be explored.
 
 If Alice send Bob some bitcoin but Bob has lost access to that address, the coins may be lost forever. OP_BBV can be used to construct a transaction that sends to an output where Bob must redeem the coins in that output by creating a transaction that spends the output within a time limit. If Bob has lost access to that address, Alice can retrieve the funds for reuse. This was originally described by ByteCoin [on bitcointalk.org](https://bitcointalk.org/index.php?topic=1786.msg21998#msg21998). 
 
-It is currently possible for someone to send to an output that is both spendable by Alice and Bob, where Alice expects Bob to redeem the coins. If Bob doesn't, Alice can still retrieve the coins. The downside of currently available mechanisms is that either Alice or Bob must retrieve the coins to complete the transaction, whereas with OP_BBV Alice can simply leave the coins there until she wants to spend it.
+It is currently possible for someone to send to an output that is both spendable by Alice and Bob, where Alice expects Bob to redeem the coins. If Bob doesn't, Alice can still retrieve the coins. The downside of currently available mechanisms is that either Alice or Bob must retrieve the coins to complete the transaction, whereas with OP_BBV, the sender can simply leave the coins there until she wants to spend it. Another mechanism is the *Emulation with absolute and relative timelocks* described below, however that requires the receiver to actively watch the blockchain indefinitely until they want to spend it. 
 
 #### Reversible Payments
 
-A reversible payment is one where Alice sends Bob a transaction, but Bob can't spend for a period of time and during that time, Alice can choose to reverse the transaction. This is basically the opposite of expiring payments. These can give users the ability to reverse a transaction where they made a mistake, eg in who they sent to or the amount sent. This can currently be achieved by doing two transactions: however this doubles the cost of the transaction. OP_BBV enables reversible payments with a single transaction and consequently very little additional cost. 
+A reversible payment is one where Alice sends Bob a transaction, but Bob can't spend for a period of time and during that time, Alice can choose to reverse the transaction. This is basically the opposite of expiring payments. These can give users the ability to reverse a transaction where they made a mistake, eg in who they sent to or the amount sent. 
+
+This can currently be achieved by doing two transactions: however this doubles the cost of the transaction. OP_BBV enables reversible payments with a single transaction and consequently very little additional cost.  Another mechanism is the *Emulation with absolute and relative timelocks* described below, however that requires the receiver to actively watch the blockchain indefinitely until they want to spend it. 
 
 If the OP_BBV spend path has more complex requirements, this can make other interesting things cheaper, like the time-limited escrow discussed below.
 
@@ -120,6 +122,10 @@ There are two distinct types of invalidity for this opcode:
    1. The specified block height has not been reached
    2. The specified block height has been reached, but a reorg is still possible with a significant likelihood.
 
+### UTXO Quieting Period
+
+A UTXO that calls OP_BBV with a blockheight within 6 blocks of when it was confirmed may not be spent until the UTXO has at least 6 confirmations. 
+
 ### Mempool Handling
 
 Mempool handling must consider a few possibilities:
@@ -140,11 +146,17 @@ Consideration is also needed for transactions that are already in the mempool wi
 
 Note that because OP_CHECKSEQUENCEVERIFY transactions are not added to mempools or propagated through the network until they become valid, there is no additional complexity that arises from interactions between OP_BBV and OP_CSV.
 
+### Receiver Finality
+
+Because spend-paths that call OP_BBV might expire in upcoming blocks, the receiver of a payment should ensure that they wait for at least 6 blocks before considering a payment complete if that payment's transaction would not be valid if included in a block that has any significant likelihood of being orphaned. Receivers that follow the standard 6-confirmation rule for all transactions don't need to change their behavior. However, receivers that regularly accept single-confirmation transactions as finalized must be made aware of this edge case. Software should clearly warn the user that a payment should not be considered complete without waiting for 6 confirmations with additional information they can access about why this is the case (to minimize the number of users that ignore this warning). 
+
 ## Rationale
 
 This opcode allows a normal transaction from a bitcoin vault to take place in a single transaction, rather than in two transactions (like would be required by a bitcoin vault using [OP_CHECKTEMPLATEVERIFY](https://github.com/bitcoin/bips/blob/master/bip-0119.mediawiki)). This cuts the space-cost (and therefore necessary fees) of these transactions nearly in half. 
 
 This is structured as a check-and-verify operation to prevent any need to run the script more than once. Were the opcode to push a value on the stack, a completely different code path could be executed across the block height boundary passed to the operation. If more operations that had boundary conditions were implemented, it could end up multiplying the number of times the script must be run, which both uses more computer resources and adds complexity to handling the transaction validation and mempool. 
+
+The quieting period exists because a transaction with a spend path that expires within 6 blocks of when it was confirmed has a significantly higher likelihood of being accidentally reversed in a reorg, and consequently transactions that spend an output of a transaction like that may also be reversed in a reorg. The quieting period eliminates any possibility that 3rd parties are affected by any reorg edge cases. Thanks to Greg Maxwell [for suggesting this](https://www.reddit.com/r/Bitcoin/comments/3hl96a/is_there_a_reverse_of_the_nlocktime_op/cu8k1zp?utm_source=share&utm_medium=web2x&context=3). 
 
 OP_BBV evaluates a height from the stack directly instead of using a method similar to OP_CHECKSEQUENCEVERIFY that requires adding transaction data (like nSequence). Peter Wuille [mentioned](https://bitcoin.stackexchange.com/a/45808/5254) that OP_CHECKSEQUENCEVERIFY constrains the nSequence which in turn actually constrains the relative locktime, rather than having OP_CSV constrain the relative locktime directly, and that this is done to provide a way to distinguish between an "outright invalid" transaction vs a temporarily invalid transaction. However, it should have been possible to define OP_CSV such that the script would always fully run, but OP_CSV would mark it as temporarily invalid if its check fails, similarly to the above. This way the script would never need to be rerun, as long as the state about when the transaction becomes valid is retained. 
 
@@ -154,6 +166,26 @@ This could be done like the following, using two types of invalidity:
 2. In the case of evaluating a transaction for inclusion into the mempool, the opcode should instead be treated as specifying a conditional validity. Record should be kept of the transaction and its boundary condition as long as the node might need to use the transaction, which are in the following cases:
    1. The specified block height has not been reached.
    2. The specified block height has been reached, but a reorg is still possible with a significant likelihood.
+
+## Extensions
+
+### Disincentive to spend near expiry
+
+Because spending a UTXO using a spend-path that expires soon presents certain risks and issues, making this more costly can mitigate potential attacks that would otherwise be costless. 
+
+This extension would increase the weight of a transaction spent with OP_BBV if it is 100 blocks or closer to expiring. In a relevant case, the transaction's number of vbytes is multiplied by `1.01^blockUntilExpiry`. 
+
+In any 6-block span, the cost would only increase approximately 6%, however attempting to spend a transaction within 6 blocks of expiry would be about 2.5 times the cost of a normal transaction - providing a significant cost to doing that. 
+
+### Disallow specifying the blockheight in the script witness
+
+Allowing the spender of a UTXO to specify the blockheight at which a transaction expires can allow a malicious user to choose an expiration height that has a significant probability of a reorg canceling the transaction after being confirmed in a block. 
+
+This extension disallows the spender from specifying the blockheight, and instead requires that the blockheight originate from somewhere that has been already confirmed in a block (ie in a script spend path of an address).
+
+This would ensure that a malicious user could not specify expiry of all transactions they broadcast, but instead would either need to first make a transaction to an address with the expiry they need, or they could only opportunistically spend UTXOs that happen to have a spend-path that expires soon. This would substantially limit the ability for malicious actors to make passive attempts to set up a transaction that might be reversed by a reorg. 
+
+This extension, however, limits the usefulness of the opcode. Senders would not, for example, be able to choose expiry when spending for legitimate purposes, for example if someone wanted a feature to set a configurable time for a reversible payment, with this extension, that configuration could only apply to coins received after that configuration was set rather than being able to dynamically be changed for any transaction, which would make the feature a lot less intuitive and flexible. However, primary use cases for this opcode don't require dynamic expiry, so this is a minor loss of functionality. 
 
 ## Considerations
 
@@ -170,32 +202,33 @@ Since OP_BBV can cause a valid signed transaction to become invalid at some poin
 1. in normal mempool handling, and
 2. in the case of reorgs. 
 
-In the past, objections have been given for any possibility for transactions to expire on these grounds. I asked a question about this [on the Bitcoin stack exchange](https://bitcoin.stackexchange.com/questions/96366/what-are-the-reasons-to-avoid-spend-paths-that-become-invalid-over-time-without) but haven't gotten any answers. I also had [a conversation](https://www.reddit.com/r/Bitcoin/comments/gwjr8p/i_am_jeremy_rubin_the_author_of_bip119_ctv_ama/ft2die9?utm_source=share&utm_medium=web2x&context=0) with Jeremy Rubin about this. I am very curious to know what other arguments against doing this there are. I will address those concerns here to the best of my knowledge.
+In the past, objections have been given for any possibility for transactions to expire on these grounds. These are discussed in the sections on *Spam Risk* and *Reorg Safety*.
 
-##### Spam Risk
+#### Spam Risk
 
-Using OP_BBV, someone could spam the mempool with valid transactions that expire in the next block. If the spammer waits for that block to be mined before broadcasting, they could spam the network with transactions that are no longer valid among nodes who have not received the new block yet.
+Using OP_BBV, someone could spam the mempool with valid transactions that expire in the next block. If the spammer waits for that block to be mined before broadcasting, they could potentially spam the network with transactions that are no longer valid among nodes who have not received the new block yet. 
 
 A mitigation to this is to simply reject transactions that expire in the next block. However, the attacker may then create transactions with a fee too low to likely get into 2 blocks from now. Some evaluation of the likelihood of how quickly the transaction can get into a block is needed, and this is discussed in the *Mempool Handling* section above. There may be significant tradeoffs between accuracy of this likelihood evaluation between accuracy and resource usage. 
 
-##### Reorg Safety
+#### Reorg Safety
 
 Satoshi said the following [here](https://bitcointalk.org/index.php?topic=1786.msg22119#msg22119):
 
 > In the event of a block chain reorg after a segmentation, transactions need to be able to get into the chain in a later block. The transaction and all its dependents would become invalid. This wouldn't be fair to later owners of the coins who weren't involved in the time limited transaction.
 
-However, if a person waited for the standard 6 blocks before accepting a transaction as confirmed, there should be no significantly likely scenario where any finalized transaction needs to be reverted. If 6 blocks is indeed a safe threshold for finalization, then any transaction that has 5 or fewer confirmations should be considered fair game for reversal. It seems unreasonable to call this "unfair", in fact it is rather the standard assumption. It seems Peter Todd [had similar thinking](https://lists.linuxfoundation.org/pipermail/bitcoin-dev/2013-July/002939.html).
+However, if a person waited for the standard 6 blocks before accepting a transaction as confirmed, there should be no significantly likely scenario where any finalized transaction needs to be reverted. If 6 blocks is indeed a safe threshold for finalization, then any transaction that has 5 or fewer confirmations should be considered fair game for reversal. It seems unreasonable to call this "unfair", in fact it is the standard assumption. It seems Peter Todd [had similar thinking](https://lists.linuxfoundation.org/pipermail/bitcoin-dev/2013-July/002939.html).
 
 > Satoshi was worried that in the event of a re-org long chains of
 > transactions could become invalid and thus impossible to include in the
 > blockchain again, however that's equally possibly through tx mutability
 > or double-spends;(1) I don't think it's a valid concern in general.
 
-It is true that there are situations where people may quite safely accept transactions with a single confirmation, since there are many kind of transactions that aren't good targets for a double spending attack. However, in such scenarios, it would be simple for the software to instruct the user that the transaction has not finalized yet in the case that transaction may expire in the next 6 blocks.
+It is true that there are situations where people may quite safely accept transactions with a single confirmation, since there are many kind of transactions that aren't good targets for a double spending attack. However, in such scenarios, it would be simple for the software to instruct the user that the transaction has not finalized yet in the case that transaction may expire in the next 6 blocks as mentioned above in *Receiver Finality* section. The two *Extensions* discussed above are other ways to mitigate this. 
 
-Greg Maxwell [mused that](https://www.reddit.com/r/Bitcoin/comments/3hl96a/is_there_a_reverse_of_the_nlocktime_op/cu8k1zp?utm_source=share&utm_medium=web2x&context=3) a quieting period before an output in a transaction with an input that uses an opcode like this might mitigate some of the safety concerns around this. 
+## See also
 
-I've asked [a question about  how reorgs are handled](https://bitcoin.stackexchange.com/questions/105525/how-do-nodes-handle-long-reorgs) on the Bitcoin stack exchange. I would expect that nodes need to revert their UTXO set to the point at which the chains diverged, re-admit transactions to the mempool from blocks evaluated after that divergence point, then re-evaluate the blocks. This perhaps might end with evicting conflicting transactions from the mempool after evaluation has completed. None of this process sounds like OP_BBV transactions would make a reorg substantially more difficult for nodes or for users sending transactions. 
+* [Stack Exchange question about objections to transaction expiry](https://bitcoin.stackexchange.com/questions/96366/what-are-the-reasons-to-avoid-spend-paths-that-become-invalid-over-time-without)
+* [Conversation about issues with expiring transactions](https://www.reddit.com/r/Bitcoin/comments/gwjr8p/i_am_jeremy_rubin_the_author_of_bip119_ctv_ama/ft2die9?utm_source=share&utm_medium=web2x&context=0)
 
 ## Copyright
 
