@@ -1,8 +1,6 @@
 # Wallet Vault 1
 
-This is a basic wallet vault script using the operations OP_POSS, OP_CD, and OP_BBV. It has a lot of limitations, but it is simple to understand and it is has fewer limitations than wallet vaults created with op_checktemplateverify. 
-
-The scripts are written in [javascript-like pseudo-code](notation.md). Variables that end in an underscore (eg `intermediateAddress_`) represent hard coded values in the script.
+This is a basic wallet vault script using the operations OP_POS, OP_CD, and OP_BBV. It has a lot of limitations, but it is simple to understand and it is has fewer limitations than wallet vaults created with op_checktemplateverify.
 
 ## Properties
 
@@ -42,15 +40,15 @@ function spendNormally(signature, destinationOutputId, destinationAddress, chang
 
 ### Intermediate Address
 
-The `intermediateAddress_` referenced above is an address with the following spend paths:
+The `destinationIntermediateAddress_` and `changeIntermediateAddress_` referenced above are addresses with the following spend paths:
 
 ```
 Key spend-path:
   <none>
 Script spend-path 1:
-  destinationSpend(destinationPublicKey)
+  destinationSpend(destinationSignature, destinationPublicKey)
 Script spend-path 2:
-  cancelTransaction()
+  cancelTransaction(keyANSig, keyBNSig)
 
 function destinationSpend(destinationSignature, destinationPublicKey):
   // Transaction creating this output must have been confirmed at LEAST 5 days ago.
