@@ -25,6 +25,7 @@ This could either be activated using a tapscript OP_SUCCESSx opcode or less effi
 #### Better Wallet Vaults
 
 * No pre-signed transactions necessary.
+* Fixes the security hole in OP_CTV vaults that allows an attacker to steal some funds that the vault owner is sending out of the vault. 
 
 The primary motivation for this opcode is to create efficient wallet vaults. This allows a parent output constrained with a covenant to pass information from its witness to a child output. This makes it possible to both constrain a parent output with a covenant and at the same time put requirements on the child output that weren't known on creation of the parent output. This allows, for example, the destination to be passed to the covenant parent output in its witness and then require the child output to be spendable by that destination. See the *Motivation* section in the [parent BIP](README.md) for details and larger context. 
 
@@ -45,8 +46,8 @@ It does the following:
    * Top - 1 - n: `valueN` where `n` is the zero-based index of a list of values.
 4. For the output identified by `outputIndex`, the set of values that follow the `outputIndex` are pushed on a new conceptual stack called the "output stack" for that output/input pair. 
 5. If there is more than one output to the `address`, loop back to step 3 for each additional output.
-6. When the transaction is validated, the output's output stacks for each input are compared to ensure they are identical. 
-7. Upon evaluation of that output as a UTXO used as an input to a subsequent transaction, after the witness is evaluated, the output stack associated with one of those inputs (it is arbitrary since they have all been validated to be identical) is pushed onto the execution stack such that the last item on the output stack becomes the first item on the stack (in other words, the output stack values pushed onto the execution stack will be in the same order as the output stack). 
+6. When the transaction is validated, the output's output-stacks for each input are compared to ensure they are identical. If not, the transaction fails.
+7. Upon evaluation of a UTXO as an input to a subsequent transaction, after the witness is evaluated, the output stack associated with one of those inputs (it is arbitrary since they have all been validated to be identical) is pushed onto the execution stack such that the last item on the output stack becomes the first item on the stack (in other words, the output stack values pushed onto the execution stack will be in the same order as the output stack). 
 
 Reversion modes. For all the following situations, the opcode reverts to its OP_SUCCESS semantics:
 
@@ -82,11 +83,11 @@ Because OP_POS is designed to put data on the execution stack before the scriptP
 
 Once a transaction using OP_POS has been evaluated, it needs to be stored in some form in the UTXO set so nodes can correctly initialize the output stack of the relevant UTXO.
 
-One could imagine storing the output stack directly, however because of the ability for an OP_POS command to push values to every output, its possible for someone to abuse this ability to multiply the number of items pushed to output stacks. A rough calculation of how much data could be pushed onto the output stack, given a 9-byte minimum output size and maximum transaction size of 100kb (verify this), if 50kb were used for outputs and the rest was used to write a 49kb of data to the output stacks, this would over 5,500 outputs times 49kb, which would be 269 MB of data. Clearly, this isn't something we want nodes storing for a single transaction. By using multiple transactions in a row that use OP_POS, even higher amounts of data could be generated. This could be optimized in cases where the output stacks for all outputs are identical, but there is a risk that malicious users could abuse whatever optimizations are made to similar effect. 
+One could imagine storing the output stack directly, however its possible for someone to abuse this opcode to multiply the number of items pushed to output stacks. A rough calculation of how much data could be pushed onto the output stack, given a 9-byte minimum output size, if say 100kb were used for outputs and the rest was used to write a 100kb of data to the output stacks, this would over 5,500 outputs times 49kb, which would be 1.1 GB of data. Clearly, this isn't something we want nodes storing for a single transaction. By using multiple transactions in a row that use OP_POS, even higher amounts of data could be generated. This could be optimized in cases where the output stacks for all outputs are identical, but there is a risk that malicious users could abuse whatever optimizations are made to similar effect. 
 
 One way to mitigate this issue is to instead re-evaluate the parent output script to regenerate the output stack before use in the subsequent transaction. That way only the parent output needs to be stored, rather than the data generated. The transaction need not be fully evaluated either the second time around. Any opcodes that verify things and don't add anything onto the stack could simply avoid most of their evaluation steps, for example. 
 
-Another way to mitigate this is to limit how much data can be pushed to output stacks in total. The limit could be set to something like 50kb. A third way to mitigate this is to add this output stack data into the calculation of a transaction's vbytes so that extra effort used in building the output stacks from various inputs would be paid for. 
+Another way to mitigate this is to limit how much data can be pushed to output stacks in total. The limit could be set to something like 10kb. A third way to mitigate this is to add this output stack data into the calculation of a transaction's vbytes so that extra effort used in building the output stacks from various inputs would be paid for. 
 
 #### Polluting an output's stack
 
@@ -103,17 +104,19 @@ This could be mitigated slightly by requiring a companion opcode that might hypo
 
 Individual scripts could mitigate this by having some kind of validation of the output stack values, and if those values don't validate, separate spend paths could be used. However, this would bloat each script and might not be possible in many cases or may only cover a fraction of possible output stack pollution.
 
-This proposal recommends relying on clearly warning users of this problem so an attacker has a low likelihood of tricking them in a case where this can happen. Its likely to be very rare that an attacker could exploit this to steal money, however the griefing possibility is a lot more likely to be possible, if users ignore their software's warnings or if the software omits warnings in this case.
+This proposal recommends that software clearly warn users of this problem in relevant cases so an attacker has a low likelihood of tricking them in a case where this can happen. It seems likely to be rare that an attacker could exploit this to steal money, however the griefing possibility is a lot more likely to be possible, if users ignore their software's warnings or if the software omits warnings in this case.
 
 #### Links inputs and outputs together
 
 Because this opcode requires specifying specific output IDs, that ties those outputs to the relevant input. This might be undesirable in coinjoins or similar constructions that seek to obfuscate the link between sources and destinations.
 
-#### PROBLEMS
+#### Individually specifying all output IDs
 
-* If you allow a mechanism to push values on all outputs for a given address, its very likely that two vault inputs will conflict by pushing different values on the output stack for the same output.
-* Even if its enforced that all outputs for a given address get some output data, what output data they get would not be necessarily checked. An attacker could create an output that adds output data when spent (to all the relevant outputs) that are different than intended by the script and might allow circumventing the scripts protections. 
-  * A way to solve this is to couple this with OP_CD, where OP_CD would specify that the UTXO must be spent to a collection of given output Ids, and those output Ids could be reused in an OP_POS call to ensure that the outputs constrained to are all getting output data from the script.
+Theoretically, it could be useful to allow a mechanism to push output stack data for all outputs to a given address (without explicitly specifying them). However, if you allow a mechanism to push values on all outputs for a given address, its possible that two vault inputs will conflict by pushing different values on the output stack for the same output. Such a mechanism would increase the likelihood that unrelated outputs could not be used together in the same transaction. That's why this ability was not included in this opcode.
+
+#### Output stack data is dependent on the destination
+
+There is no mechanism to ensure that output data written to a transaction will result in an output that can be spent. This does mean that improperly written scripts could accidentally burn coins.
 
 ## Copyright
 
