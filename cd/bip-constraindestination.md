@@ -20,10 +20,7 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
     + [Increased Payment Channel Routes](#increased-payment-channel-routes)
 - [Design](#design)
 - [Specification](#specification)
-  * [Option A - Tapscript Opcode](#option-a---tapscript-opcode)
-    + [Opcode Example Call](#opcode-example-call)
-    + [Pseudocode Examples](#pseudocode-examples)
-  * [Option B - Traditional Script Opcode](#option-b---traditional-script-opcode)
+  + [Opcode Example Call](#opcode-example-call)
 - [Rationale](#rationale)
 - [Detailed Specification](#detailed-specification)
 - [Design Tradeoffs and Risks](#design-tradeoffs-and-risks)
@@ -49,9 +46,8 @@ This could be activated using a tapscript OP_SUCCESSx opcode.
 #### Better Wallet Vaults
 
 * Far more flexible than OP_CTV vaults. Outputs can be spent in a transaction with any other outputs.
-* Fixes the security hole in OP_CTV vaults that allows an attacker to steal some funds that the vault owner is sending out of the vault. 
 
-The primary motivation for this opcode is for wallet vaults. See the *Motivation* section in the [parent BIP](README.md).
+The primary motivation for this opcode is for wallet vaults. See [this example wallet vault](op_cdWalletVault1.md) that uses this opcode. See also the *Motivation* section in the [parent BIP](../README.md) for broader context (involving other proposed opcodes).
 
 #### Congestion Controlled Transactions
 
@@ -63,15 +59,13 @@ This could save payers money, but would end up being larger on the blockchain, s
 
 #### Increased Payment Channel Routes
 
-Since the number of HTLCs is limited to 483 in order to keep the transaction from becoming too large to be valid, covenant transactions can be used to expand the number of HTLCs. (More details here](https://utxos.org/uses/htlcs/)
+Since the number of HTLCs is limited to 483 in order to keep the transaction from becoming too large to be valid, covenant transactions can be used to expand the number of HTLCs. [More details here](https://utxos.org/uses/htlcs/)
 
 ## Design
 
 TBD
 
 ## Specification
-
-### Option A - Tapscript Opcode
 
 OP_CONSTRAINDESTINATION (*OP_CD for short*) redefines opcode OP_SUCCESS_82 (0x52). The opcode can be used to limit the destinations that and fee that a input can contribute to. It does the following: 
 
@@ -104,7 +98,7 @@ Failure modes. For all the following additional situations, the transaction is m
 6. If the value of the output minus the sum of all bitcoin amounts in `outputValues` is greater than `maxFeeContribution`.
 7. If the sum of all given OP_CD contributions (from all inputs) for an output is greater than the value of the output.
 
-#### Opcode Example Call
+### Opcode Example Call
 
 Given a median 300-block fee-rate of 10 sats/byte, the following is a script that limits the input to being spent to only address `D` and address `C` in outputs 0 (for 24345200 satoshi), 1 (for 329435400 satoshi), and 2 (for 12345 satoshi) with a maximum fee of `10 * 2^5= 320 sats`.
 
@@ -154,14 +148,12 @@ TBD
 
 OP_CD requires specifying each output and the amount sent to the output in order to make it simple and efficient to calculate validity of OP_CD across multiple inputs that might share OP_CD destinations. Validity could be calculated without this specification, but it would require a potentially very large number of combinations being checked. Without specifying the amounts the UTXO will contribute for each output, a DOS attack vector is opened up where the attacker may create an intentionally difficult-to-verify transaction using many outputs each using OP_CD. An attacker might construct transactions with many inputs that share potential OP_CD destinations in different combinations. If there are enough combinations that must be checked, this might substantially slow down validation and open a DOS vector for attackers. 
 
-There are other mitigations to this (limit the number of combinations that need to be checked, or increase the vbyte weight of transactions with many combinations that need to be checked), however these mitigations either limit the use of the opcode or are complex and imperfect mitigations. Requiring the user to specify the solution the validation equation makes validation far simpler, at the expense of slightly larger transactions. 
+There are other mitigations to this (limit the number of combinations that need to be checked, or increase the vbyte weight of transactions with many combinations that need to be checked), however these mitigations either limit the use of the opcode or are complex and imperfect mitigations. Requiring the user to specify the solution the validation equation makes validation simpler and safer, at the expense of slightly larger transactions. 
 
 ####  Fungibility Risks with OP_CD
 
-With OP_CD, there is the possibility of creating covenants with unbounded chains of constraints. This could be used to put permanent restrictions on particular coins. However, its already possible to permanently restrict coins. A multisig setup could be created where the coins can only be spent if a particular key approves. I don't see much of a reason to prevent people from doing this kind of thing with their own money. Restricting its use can generally only reduce the value of the coins, so at worst its similar to provably burning coins. 
+With OP_CD, there is the possibility of creating covenants with unbounded chains of constraints. This could be used to put permanent restrictions on particular coins. However, its already possible to permanently restrict coins. A multisig setup could be created where the coins can only be spent if a particular key approves. It seems there is a [reasonable amount of community consensus](https://www.mail-archive.com/bitcoin-dev@lists.linuxfoundation.org/msg10222.html) that these fungibility issues aren't much of a concern. Restricting its use can generally only reduce the value of the coins, so at worst its similar to provably burning coins. 
 
 #### Flexible output value claims
 
-As specified, the output claims in OP_CD calls for an output do not have to add up to the actual value sent to that output. For example, a transaction with a single input that has OP_CD claim to send 100 sats to an output, while the output actually receives 150 sats. This can still be valid as the claim doesn't (or sum of claims for an output don't) *exceed* the output value. If this flexibility is seen as a problem, it could be fixed. But it seems like a relatively safe thing to allow.
-
-#### Feature Redundancy
+As specified, the output-value claims in an OP_CD call do not have to add up to the actual value sent to that output. For example, a transaction with a single input that has OP_CD claim to send 100 sats to an output, while the output actually receives 150 sats. This can still be valid as the claim doesn't (or sum of claims for an output don't) *exceed* the output value. If this flexibility is seen as a problem, it could be fixed. But it seems like a relatively safe thing to allow.

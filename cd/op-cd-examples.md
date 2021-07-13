@@ -4,7 +4,7 @@ This page shows a number of examples of transactions that might use [OP_CD](bip-
 
 ### Example Transactions
 
-For the following examples, I'll write this information using [javascript-like pseudocode](notation.md) as `OP_CD(sampleWindowFactor, feeFactor, [Address1, Address2,...], {id1: amount1, id2: amount2, ...})`. For example, the above example script would be written as `OP_CD(300 blocks, 7, [D, C], {0: 24345200, ...})`. I'll also use 10 sats/byte as the 300-block median fee rate.
+For the following examples, I'll write this information using [javascript-like pseudocode](../notation.md) as `OP_CD(sampleWindowFactor, feeFactor, [Address1, Address2,...], {id1: amount1, id2: amount2, ...})`. For example, the above example script would be written as `OP_CD(300 blocks, 7, [D, C], {0: 24345200, ...})`. I'll also use 10 sats/byte as the 300-block median fee rate.
 
 Example Transaction A:
 

@@ -38,7 +38,7 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
 
 ### Abstract
 
-This BIP proposes three new script opcodes: [OP_BEFOREBLOCKVERIFY](bbv/bip-beforeblockverify.md), [OP_PUSHOUTPUTSTACK](bip-pushoutputstack.md), and [OP_CONSTRAINDESTINATION](bip-constraindestination.md). These extensions have applications for efficient bitcoin vaults, among other things, which are described in the *Motivation* sections of this BIP and the opcode BIPs.
+This BIP proposes three new script opcodes: [OP_BEFOREBLOCKVERIFY](bbv/bip-beforeblockverify.md), [OP_PUSHOUTPUTSTACK](bip-pushoutputstack.md), and [OP_CONSTRAINDESTINATION](cd/bip-constraindestination.md). These extensions have applications for efficient bitcoin vaults, among other things, which are described in the *Motivation* sections of this BIP and the opcode BIPs.
 
 ### Motivation
 
@@ -135,7 +135,7 @@ Three opcodes are needed for the wallet vaults described in this BIP:
 
 * [OP_BEFOREBLOCKVERIFY](bbv/bip-beforeblockverify.md) - Verifies that the block the transaction is within has a block height below a particular number. This allows a spend-path to expire. 
 * [OP_PUSHOUTPUTSTACK](bip-pushoutputstack.md) - Pushes data onto the "output stack" for outputs to a particular address. The "output stack" is a stack of data that will be pushed onto the stack after the witness script runs, but before the primary script runs. This allows a script writer to constrain behavior of a chained transaction output with witness data that was used a covenant input script.
-* [OP_CONSTRAINDESTINATION](bip-constraindestination.md) - Limits the destinations that an input can send to and limits the fee that the output can contribute to. This allows for the creation of covenant transactions. 
+* [OP_CONSTRAINDESTINATION](cd/bip-constraindestination.md) - Limits the destinations that an input can send to and limits the fee that the output can contribute to. This allows for the creation of covenant transactions. 
 
 There are two options given: one option where the opcodes redefine tapscript OP_SUCCESSx opcodes and one option where the new opcodes redefine OP_NOPx opcodes. 
 
@@ -217,8 +217,7 @@ However, if tapscript for some reason doesn't land or has to be changed. In such
 1. What concrete objections are there to OP_BEFOREBLOCKVERIFY?
 2. Does OP_CD make it possible to make [channel factories](https://utxos.org/uses/batch-channels/) with the same benefits as op_ctv?
 3. Does OP_CD make it possible to make [non-interactive channels](https://utxos.org/uses/non-interactive-channels/) like op_ctv can?
-5. Terminology around the definition of OP_CD - it defines it as constraining to an "address", but maybe saying it constrains the script would be more accurate. 
-5. Which mitigation, if any, should be chosen for the [OP_CD "Combination of OP_CD UTXOs DOS Vector"](bip-constraindestination.md)
+5. Terminology around the definition of OP_CD - it defines it as constraining to an "address", but maybe saying it constrains the script would be more accurate? 
 
 ## Similar work
 
