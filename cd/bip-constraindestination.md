@@ -79,7 +79,7 @@ OP_CONSTRAINDESTINATION (*OP_CD for short*) redefines opcode OP_SUCCESS_82 (0x52
    * If `sampleWindowFactor` is 2, the `windowLength` is 300 blocks.
    * If `sampleWindowFactor` is 3, the `windowLength` is 3000 blocks.
 6. The next item popped from the stack is interpreted as an integer `feeFactor` (which can be positive of negative). If the number is -1, it is interpreted as -infinity (meaning the transaction can contribute nothing to the fee). 
-7. The `medianFeeRate` is defined as the median fee rate per vbyte for the most recent `windowLength` blocks. The `maxFeeContribution` is defined as `medianFeeRate * 2^feeFactor` of the fee. Note that this is a limitation on the fee, not on the fee-rate. If `feeFactor` is -1, `maxFeeContribution` is 0.
+7. A `blockMedianFeeRate` is defined as the median fee-rate per vbyte for a given block. The `averageFeeRate` is defined as the average of `blockMedianFeeRate` for each block in the most recent `windowLength` blocks. The `maxFeeContribution` is defined as `averageFeeRate * 2^feeFactor` of the fee. Note that this is a limitation on the fee, not on the fee-rate. If `feeFactor` is -1, `maxFeeContribution` is 0.
 8. Once all input scripts have been evaluated, for each output, verify that the amount of bitcoin claimed to have been contributed to that output in all OP_CD calls (from all input) sums to an amount smaller than the that output's value. 
 
 Reversion modes. For all the following situations, the opcode reverts to its OP_SUCCESS semantics:
@@ -100,7 +100,7 @@ Failure modes. For all the following additional situations, the transaction is m
 
 ### Opcode Example Call
 
-Given a median 300-block fee-rate of 10 sats/byte, the following is a script that limits the input to being spent to only address `D` and address `C` in outputs 0 (for 24345200 satoshi), 1 (for 329435400 satoshi), and 2 (for 12345 satoshi) with a maximum fee of `10 * 2^5= 320 sats`.
+Given a 300-block `averageFeeRate` of 10 sats/byte, the following is a script that limits the input to being spent to only address `D` and address `C` in outputs 0 (for 24345200 satoshi), 1 (for 329435400 satoshi), and 2 (for 12345 satoshi) with a maximum fee of `10 * 2^5= 320 sats`.
 
 ```
 5
@@ -134,7 +134,7 @@ Note also that this design solves the half-spend problem without restricting thi
 
 OP_CD is defined as a check-and-verify opcode rather than pushing 1 or 0 on the stack because that would conceptually allow the execution of an output's script to be affected by the scripts of other outputs. That would add complexity that is almost certainly unacceptable. As currently defined, the interactions between outputs that OP_CD allows can only result in the transaction being declared invalid, rather than changing any execution behavior of the scripts. 
 
-The `medianFeeRate` is used to calculate the maximum fee contribution of an output rather than the median fee so that a change in the average bytes-per-transaction over time doesn't skew the calculations of fee limits.
+The `averageFeeRate` is used to calculate the maximum fee contribution of an output rather than the median fee so that a change in the average bytes-per-transaction over time doesn't skew the calculations of fee limits.
 
 The opcode has several cases where it reverts to OP_SUCCESSx semantics (or OP_NOPx semantics in the case of the traditional script version). This is done rather than defining it as failure so that future soft-forks can redefine these semantics.
 
