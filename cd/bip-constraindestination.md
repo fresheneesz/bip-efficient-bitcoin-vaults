@@ -167,3 +167,5 @@ Single-party use cases (eg wallet vaults) don't carry as much risk of this, sinc
 #### Manipulation of the average fee rate
 
 Miners could potentially manipulate the fee rate, for example by sending themselves payments with high fees. This could allow those miners (or those complicit with them) to extract more value from a victim via fees. Doing this would be costly for miners tho, and recouping the cost would require a reasonably large attack (at least hundreds of transactions from victims' wallets for a 6 block sample window, and on the order of hundreds of thousands of transactions for a 3000 block sample window).
+
+Miners who manipulate the average fee rate this way could be vulnerable to fee-sniping. This would either be a deterrent  for miners to do this, or would be pressure for these manipulative miners to cartelize. 
