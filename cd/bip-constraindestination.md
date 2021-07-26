@@ -157,3 +157,13 @@ With OP_CD, there is the possibility of creating covenants with unbounded chains
 #### Flexible output value claims
 
 As specified, the output-value claims in an OP_CD call do not have to add up to the actual value sent to that output. For example, a transaction with a single input that has OP_CD claim to send 100 sats to an output, while the output actually receives 150 sats. This can still be valid as the claim doesn't (or sum of claims for an output don't) *exceed* the output value. If this flexibility is seen as a problem, it could be fixed. But it seems like a relatively safe thing to allow.
+
+#### Theft via fees
+
+The purpose of the fee limit is to limit the risk of griefing attacks and theft via fees. However, this doesn't fully prevent fee abuse. For example, a miner could purchase some goods with a congestion controlled transaction, and then choose a time during high fees to send the transaction with as high a fee as possible. OP_CD carries the risk that some actors will play dirty like this and extract higher than expected fees in multi-party contracts like this.
+
+Single-party use cases (eg wallet vaults) don't carry much risk of this, since the user is sending to themselves. However, if a wallet vault's key is stolen, an attack may use this approach to extract some value from their victim via fees. 
+
+#### Manipulation of the average fee rate
+
+Miners could potentially manipulate the fee rate, for example by sending themselves payments with high fees. This could allow those miners (or those complicit with them) to extract more value from a victim via fees. Doing this would be costly for miners tho, and recouping the cost would require a reasonably large attack (at least hundreds of transactions from victims' wallets for a 6 block sample window, and on the order of hundreds of thousands of transactions for a 3000 block sample window).
