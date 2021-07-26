@@ -162,7 +162,7 @@ As specified, the output-value claims in an OP_CD call do not have to add up to 
 
 The purpose of the fee limit is to limit the risk of griefing attacks and theft via fees. However, this doesn't fully prevent fee abuse. For example, a miner could purchase some goods with a congestion controlled transaction, and then choose a time during high fees to send the transaction with as high a fee as possible. OP_CD carries the risk that some actors will play dirty like this and extract higher than expected fees in multi-party contracts like this.
 
-Single-party use cases (eg wallet vaults) don't carry much risk of this, since the user is sending to themselves. However, if a wallet vault's key is stolen, an attack may use this approach to extract some value from their victim via fees. 
+Single-party use cases (eg wallet vaults) don't carry as much risk of this, since the user is sending to themselves. However, if a wallet vault's key is stolen, an attacker may use this approach to extract some value from their victim via fees. 
 
 #### Manipulation of the average fee rate
 
