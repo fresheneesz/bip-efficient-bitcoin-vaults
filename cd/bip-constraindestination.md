@@ -5,7 +5,9 @@ Title: CONSTRAINDESTINATION
 Author: Billy Tetrud <bitetrudpublic@gmail.com>
 Looking for co-authors.
 Comments-Summary: TBD
-Comments-URI: TBD
+Comments-URI: 
+ * https://bitcointalk.org/index.php?topic=5349117.msg57499720
+ * https://www.mail-archive.com/bitcoin-dev@lists.linuxfoundation.org/msg10292.html
 Status: Draft
 Type: Standards Track
 Created: 2020-06-06
@@ -70,7 +72,7 @@ TBD
 OP_CONSTRAINDESTINATION (*OP_CD for short*) redefines opcode OP_SUCCESS_82 (0x52). The opcode can be used to limit the destinations that and fee that a input can contribute to. It does the following: 
 
 1. The top item on the stack is popped and interpreted as a `numberOfOutputs`.
-2. The next few items on the stack, numbering `2 * numberOfOutputs`, are popped and interpreted as the map `outputValues` which maps output IDs to an amount of bitcoin sent to that address from the UTXO.  For each pair, the output ID appears first, followed by the amount of bitcoin. 
+2. The next few items on the stack, numbering `2 * numberOfOutputs`, are popped and interpreted as the map `outputValues` which maps output indexes to an amount of bitcoin sent to that address from the UTXO.  For each pair, the output index appears first, followed by the amount of bitcoin. The "output index" is the index of the output in the tx_out list. 
 3. The next item on the stack is popped and interpreted as a `numberOfAddresses`.
 4. The next few items on the stack, numbering `numberOfAddresses`, are popped and interpreted as the list `addressList`.
 5. The next item popped from the stack is interpreted as the positive integer `sampleWindowFactor`. This determines the sample window used to calculate the recent median fee. The window is described as a number of blocks:
@@ -92,8 +94,8 @@ Reversion modes. For all the following situations, the opcode reverts to its OP_
 Failure modes. For all the following additional situations, the transaction is marked invalid:
 1. If the number of values on the stack after `numberOfAddresses` is popped is less than `numberOfAddresses`.
 2. If any address in `addressList` are invalid.
-3. If any output ID in the `outputValues` maps to an output whose destination isn't in `addressList`.
-4. If any output ID in the `outputValues` does not correspond to an output in the transaction.
+3. If any output index in the `outputValues` maps to an output whose destination isn't in `addressList`.
+4. If any output index in the `outputValues` does not correspond to an output in the transaction.
 5. If the sum of bitcoin amount values in `outputValues` is greater than the UTXO's value.
 6. If the value of the output minus the sum of all bitcoin amounts in `outputValues` is greater than `maxFeeContribution`.
 7. If the sum of all given OP_CD contributions (from all inputs) for an output is greater than the value of the output.
@@ -157,6 +159,12 @@ With OP_CD, there is the possibility of creating covenants with unbounded chains
 #### Flexible output value claims
 
 As specified, the output-value claims in an OP_CD call do not have to add up to the actual value sent to that output. For example, a transaction with a single input that has OP_CD claim to send 100 sats to an output, while the output actually receives 150 sats. This can still be valid as the claim doesn't (or sum of claims for an output don't) *exceed* the output value. If this flexibility is seen as a problem, it could be fixed. But it seems like a relatively safe thing to allow.
+
+#### Overhead for transactions with many outputs
+
+Because OP_CD requires specifying the output values that each input contributes to, there is some extra overhead for transactions with many outputs in comparison to OP_CTV. Each output would add an extra 9 bytes to the transaction size. So for transactions with a lot of outputs, it could make the transaction about 1/3 larger than if OP_CTV were used.
+
+One possible optimization would be to allow omitting an output value in cases where the entire output amount is contributed by that input. This would reduce the overhead of specifying output amounts to 2 bytes for most outputs (1 byte for the index, another to indicate the full value), meaning that it would only make transactions with large numbers of outputs about 7% larger.
 
 #### Theft via fees
 
