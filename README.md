@@ -38,7 +38,7 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
 
 ### Abstract
 
-This BIP proposes three new script opcodes: [OP_BEFOREBLOCKVERIFY](bbv/bip-beforeblockverify.md), [OP_PUSHOUTPUTSTACK](bip-pushoutputstack.md), and [OP_CONSTRAINDESTINATION](cd/bip-constraindestination.md). These extensions have applications for efficient bitcoin vaults, among other things, which are described in the *Motivation* sections of this BIP and the opcode BIPs.
+This BIP proposes four new script opcodes: [OP_BEFOREBLOCKVERIFY](bbv/bip-beforeblockverify.md), [OP_PUSHOUTPUTSTACK](pos/bip-pushoutputstack.md),  [OP_CONSTRAINDESTINATION](cd/bip-constraindestination.md), and [OP_LIMITFEECONTRIBUTION](lfc/bip-limit-fee-contribution.md). These extensions have applications for efficient bitcoin vaults, among other things, which are described in the *Motivation* sections of this BIP and the opcode BIPs.
 
 ### Motivation
 
@@ -46,13 +46,13 @@ This BIP proposes three new script opcodes: [OP_BEFOREBLOCKVERIFY](bbv/bip-befor
   * Half as expensive, because spending only requires one transaction (instead of two).
   * Funds are not vulnerable during spending (vs OP_CTV vaults where an attacker who only has one of many keys can steal funds in transit).
   * Very flexible - vault outputs can be used as inputs in any combination and spent to any combination of outputs (vs OP_CTV vaults where each output must be spent in its own separate transaction with no other inputs and only a single list of specific outputs). 
-* Other motivations specific to each of the three opcodes.
+* Other motivations specific to each of the four opcodes.
 
 The primary motivation for this BIP is to allow the creation of better wallet vaults with more ideal characteristics that have as few limitations as possible in comparison to normal bitcoin transactions. Additional motivations specific to each opcode are discussed in the BIPs for each opcode. 
 
 #### Better Wallet Vaults
 
-A "wallet vault" is a wallet construct that uses time-delayed transactions to allows a window of time for the sender to reverse a transaction made maliciously, accidentally, or incorrectly. The opcodes described in this BIP can be used to create a efficient and flexible wallet vaults that are more efficient that ones that could be created using OP_CTV and solves security flaws of such wallet vaults. The vaults that can be created with the opcodes in this BIP have the following benefits:
+A "wallet vault" is a wallet construct that uses time-delayed transactions to allows a window of time for the sender to reverse a transaction made maliciously, accidentally, or incorrectly. The opcodes described in this BIP can be used to create a efficient and flexible wallet vaults that are more efficient that ones that could be created using OP_CTV and solves security vulnerabilities of such wallet vaults. The vaults that can be created with the opcodes in this BIP have the following benefits:
 
 * Half as expensive as wallet vaults using OP_CHECKTEMPLATEVERIFY. If one day most on-chain transactions are from wallet vaults to lightning nodes (or vice versa), this could potentially reduce on-chain traffic by nearly 25%.
 * Far more flexible than OP_CTV vaults. Outputs can be spent in a transaction with any other outputs.
@@ -102,7 +102,7 @@ There are a couple issues with the above bitcoin vault construct:
 
 #### An Improved Wallet Vault
 
-By using OP_CD, OP_BBV, and OP_POS together, these issues can be eliminated in a more effective setup.
+By using OP_CD, OP_BBV, OP_POS, and OP_LFC together, these issues can be eliminated in a more effective setup.
 
 Let's say we construct two addresses, each with their own script. `Address A` has the following spend paths:
 
@@ -131,11 +131,12 @@ TBD
 
 ### Opcodes
 
-Three opcodes are needed for the wallet vaults described in this BIP:
+Four opcodes are needed for the wallet vaults described in this BIP:
 
 * [OP_BEFOREBLOCKVERIFY](bbv/bip-beforeblockverify.md) - Verifies that the block the transaction is within has a block height below a particular number. This allows a spend-path to expire. 
-* [OP_PUSHOUTPUTSTACK](bip-pushoutputstack.md) - Pushes data onto the "output stack" for outputs to a particular address. The "output stack" is a stack of data that will be pushed onto the stack after the witness script runs, but before the primary script runs. This allows a script writer to constrain behavior of a chained transaction output with witness data that was used a covenant input script.
-* [OP_CONSTRAINDESTINATION](cd/bip-constraindestination.md) - Limits the destinations that an input can send to and limits the fee that the output can contribute to. This allows for the creation of covenant transactions. 
+* [OP_PUSHOUTPUTSTACK](pos/bip-pushoutputstack.md) - Pushes data onto the "output stack" for outputs to a particular address. The "output stack" is a stack of data that will be pushed onto the stack after the witness script runs, but before the primary script runs. This allows a script writer to constrain behavior of a chained transaction output with witness data that was used a covenant input script.
+* [OP_CONSTRAINDESTINATION](cd/bip-constraindestination.md) - Limits the destinations that an input can send to. This allows for the creation of covenant transactions. 
+* [OP_LIMITFEECONTRIBUTION](lfc/bip-limit-fee-contribution.md) - Limits the fee that an input can contribute to.
 
 There are two options given: one option where the opcodes redefine tapscript OP_SUCCESSx opcodes and one option where the new opcodes redefine OP_NOPx opcodes. 
 
@@ -171,7 +172,7 @@ There are a couple attacks that could be executed on wallet vaults in general. T
 
 A. An attacker who has found `key1` could attempt to send funds to themselves. 
 
-B. An attacker who has found `key1` could attempt to grief the victim by spending outputs in transactions that maximize the fee. 
+B. An attacker who has found `key1` could attempt to grief the victim by maximizing the fee used in transactions that spend the wallet's outputs. This could theoretically be done by or with a miner to actual steal funds.
 
 C. An attacker who has found both `key1` and `key2` could steal the funds.
 
@@ -179,29 +180,13 @@ D. An attacker who has found both `key1` and `key2` could grief the victim by bu
 
 Item **A** is mitigated in a wallet vault by reversing the transaction using `key1` and `key2`. 
 
-Item **B** can be mitigated by limiting how much fee an output can contribute to. OP_CD does exactly this. One could imagine an opcode that limits how much fee the transaction as a whole can leave as fee, however this can have negative effects like preventing the ability to do replace-by-fee and is inflexible with regards to transaction size. You could also imagine limiting the fee **rate** of a transactions .This allows RBF and arbitrary transaction sizes, however it allows an attacker to create artificially large transactions and waste the output's funds in fee anyway. OP_CD has none of these problems because it constrains the fee that a particular output can contribute to, and leaves other outputs unconstrained. 
+Item **B** can be mitigated by limiting how much fee an output can contribute to. OP_LFC does exactly this. One could imagine an opcode that limits how much fee the transaction as a whole can leave as fee, however this can have negative effects like preventing the ability to do replace-by-fee and is inflexible with regards to transaction size. You could also imagine limiting the fee **rate** of a transactions. This allows RBF and arbitrary transaction sizes, however it allows an attacker to create artificially large transactions and waste the output's funds in fee anyway. OP_LFC has none of these problems because it constrains the fee that a particular output can contribute to, and leaves other outputs unconstrained. 
 
-Item **C** can be somewhat mitigated by adding more keys with additional levels of lock-times. But it can actually be entirely prevented by having a spend-path that allows someone with all of the wallet vault's keys to reverse even transactions that used all the keys, as long as the reverse transaction is done within a time limit. If an attacker attempts to steal funds, the transaction can simply be reverted. However, this laves item **D**.
+Item **C** can be somewhat mitigated by adding more keys with additional levels of lock-times. But it can actually be entirely prevented by having a spend-path that allows someone with all of the wallet vault's keys to reverse even transactions that used all the keys, as long as the reverse transaction is done within a time limit. If an attacker attempts to steal funds, the transaction can simply be reverted. 
 
-If the mitigation to item **C** is done, the attacker can still continue to try to steal the funds, effectively taking hostage over them. The victim might be forced to capitulate with demands in return for their money back. However, it still makes the attack substantially more difficult. 
+However, this still leaves item **D**. If the mitigation to item **C** is done, the attacker can still continue to try to steal the funds, effectively taking them hostage. The victim might be forced to capitulate with demands in return for their money back. However, it still makes the attack substantially more difficult. 
 
 ## Design Tradeoffs and Risks
-
-### Mitigations of potential attacks on a wallet vault
-
-There are a couple attacks that could be executed on wallet vaults in general:
-
-A. An attacker who has found `key1` could attempt to send funds to themselves. 
-
-B. An attacker who has found `key1` could attempt to grief the victim by sending potentially all the funds in the wallet to any address using most of the funds as fee. An attacker could theoretically spend 1 sat to an arbitrary address, and have the rest of the entire input as miner fees, effectively sweeping the funds into the hands of the miner.
-
-This could be mitigated by limiting how much fee the transaction (as a whole) can leave to the miner as a multiple of the median transaction fee rate (in a rolling set of recent blocks), though point C below has a better general solution. 
-
-C. Similar to B, an attacker who has found `key1` and knows the attacker has many smaller UTXOs in the bitcoin vault wallet could send one transaction per UTXO with the maximum fee, maximizing the amount the victim loses. This could be mitigated by limiting how much each UTXO can contribute to the fee, which is what OP_CD does.
-
-D. An attacker who has found both `key1` and `key2` could of course freely steal the funds. This can be mitigated by adding more keys with additional levels of lock-times. 
-
-This would fail as long as the owner checks their wallet more frequently than the relative lock time (in the above example, every 5 days) minus the time it takes them to find and use both keys to recover.
 
 ### OP_SUCCESSx vs OP_NOPx
 
@@ -210,7 +195,7 @@ The versions using OP_SUCCESSx opcodes are more efficient than their OP_NOPx cou
 * the extra OP_DROPs that are needed,
 * the extra transaction size necessary to spend a transaction that has a non-empty output stack (from OP_PUSHOUTPUTSTACK ), because of the extra values necessary for the spender to add into the scriptSig in order to spend. 
 
-However, if tapscript for some reason doesn't land or has to be changed. In such a case OP_NOPx counterparts can be used. The soft forks for OP_CHECKSEQUENCEVERIFY and OP_CHECKLOCKTIMEVERIFY (see [BIP-0065](https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki) and [BIP-0112](https://github.com/bitcoin/bips/blob/master/bip-0112.mediawiki)) have similarly done without introducing compatibility issues.
+Since Taproot has locked in, there is little reason to consider doing this using OP_NOPx. The soft forks for OP_CHECKSEQUENCEVERIFY and OP_CHECKLOCKTIMEVERIFY (see [BIP-0065](https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki) and [BIP-0112](https://github.com/bitcoin/bips/blob/master/bip-0112.mediawiki)) have similarly done without introducing compatibility issues.
 
 ## Open questions
 

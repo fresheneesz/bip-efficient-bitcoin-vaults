@@ -143,7 +143,7 @@ topOfStack
 OP_OPCODE
 ```
 
-An underscore (`_`_ will be put in place of a parameter when that value is expected to already be on the stack (eg from the witness, or from previously run script lines). This could look like the following:
+An underscore (`_`_ will be put in place of a parameter when that value is expected to already be on the stack (eg from the witness, or from previously run script lines). The `_` should be used for pseudofunctions just like for opcodes.  This could look like the following:
 
 ```
 <1, 2> ADD
@@ -173,4 +173,3 @@ pseudofunction functionName(topOfStack, secondToTop, etc):
 functionName(topOfStack, secondToTop, etc)
 ```
 
-The `_` should be used for pseudofunctions just like for opcodes. 

@@ -22,19 +22,22 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
     + [Increased Payment Channel Routes](#increased-payment-channel-routes)
 - [Design](#design)
 - [Specification](#specification)
-  + [Opcode Example Call](#opcode-example-call)
+  * [Opcode Example Call](#opcode-example-call)
 - [Rationale](#rationale)
 - [Detailed Specification](#detailed-specification)
 - [Design Tradeoffs and Risks](#design-tradeoffs-and-risks)
+    + [Specifying values sent to each output](#specifying-values-sent-to-each-output)
     + [Fungibility Risks with OP_CD](#fungibility-risks-with-op_cd)
-    + [Combination of OP_CD UTXOs DOS Vector](#combination-of-op_cd-utxos-dos-vector)
-    + [Feature Redundancy](#feature-redundancy)
+    + [Flexible output value claims](#flexible-output-value-claims)
+    + [Overhead for transactions with many outputs](#overhead-for-transactions-with-many-outputs)
+    + [Theft via fees](#theft-via-fees)
+    + [Manipulation of the average fee rate](#manipulation-of-the-average-fee-rate)
 
 ##  Introduction
 
 ### Abstract
 
-This BIP proposes a new tapscript opcode, OP_CONSTRAINDESTINATION, which can be used to constrain the destination the output may be spent to. This involves both specifying particular addresses the output is allowed to send coins to, as well as constraining the amount of the fee that output is allowed to contribute to. The extension has applications for efficient bitcoin vaults, among other things. 
+This BIP proposes a new tapscript opcode, OP_CONSTRAINDESTINATION (*OP_CD for short*), which can be used to constrain the destination the output may be spent to. This involves both specifying particular addresses the UTXO is allowed to send coins to, as well as specifying the outputs for that address. The opcode has applications for efficient bitcoin vaults, among other things. 
 
 This could be activated using a tapscript OP_SUCCESSx opcode.
 
@@ -69,27 +72,20 @@ TBD
 
 ## Specification
 
-OP_CONSTRAINDESTINATION (*OP_CD for short*) redefines opcode OP_SUCCESS_82 (0x52). The opcode can be used to limit the destinations that and fee that a input can contribute to. It does the following: 
+`OP_CD(numberOfAddresses, ...addressList, numberOfOutputs, ...outputValues)`
 
-1. The top item on the stack is popped and interpreted as a `numberOfOutputs`.
-2. The next few items on the stack, numbering `2 * numberOfOutputs`, are popped and interpreted as the map `outputValues` which maps output indexes to an amount of bitcoin sent to that address from the UTXO.  For each pair, the output index appears first, followed by the amount of bitcoin. The "output index" is the index of the output in the tx_out list. 
-3. The next item on the stack is popped and interpreted as a `numberOfAddresses`.
+OP_CONSTRAINDESTINATION (*OP_CD*) redefines opcode OP_SUCCESS_82 (0x52). The opcode can be used to limit the destinations that an input can contribute to. It does the following: 
+
+3. The top item on the stack is popped and interpreted as a `numberOfAddresses`.
 4. The next few items on the stack, numbering `numberOfAddresses`, are popped and interpreted as the list `addressList`.
-5. The next item popped from the stack is interpreted as the positive integer `sampleWindowFactor`. This determines the sample window used to calculate the recent median fee. The window is described as a number of blocks:
-   * If `sampleWindowFactor` is 0, the `windowLength` is 6 blocks.
-   * If `sampleWindowFactor` is 1, the `windowLength` is 30 blocks.
-   * If `sampleWindowFactor` is 2, the `windowLength` is 300 blocks.
-   * If `sampleWindowFactor` is 3, the `windowLength` is 3000 blocks.
-6. The next item popped from the stack is interpreted as an integer `feeFactor` (which can be positive of negative). If the number is -1, it is interpreted as -infinity (meaning the transaction can contribute nothing to the fee). 
-7. A `blockMedianFeeRate` is defined as the median fee-rate per vbyte for a given block. The `averageFeeRate` is defined as the average of `blockMedianFeeRate` for each block in the most recent `windowLength` blocks. The `maxFeeContribution` is defined as `averageFeeRate * 2^feeFactor` of the fee. Note that this is a limitation on the fee, not on the fee-rate. If `feeFactor` is -1, `maxFeeContribution` is 0.
-8. Once all input scripts have been evaluated, for each output, verify that the amount of bitcoin claimed to have been contributed to that output in all OP_CD calls (from all input) sums to an amount smaller than the that output's value. 
+3. The next item on the stack is popped and interpreted as a `numberOfOutputs`.
+4. The next few items on the stack, numbering `2 * numberOfOutputs`, are popped and interpreted as the map `outputValues` which maps output indexes to an amount of bitcoin sent to that address from the UTXO.  For each pair, the output index appears first, followed by the amount of bitcoin. The "output index" is the index of the output in the tx_out list. 
+5. Once all input scripts have been evaluated, for each output, verify that the amount of bitcoin claimed to have been contributed to that output in all OP_CD calls (from all input) sums to an amount smaller than the that output's value minus any fee constraint on the UTXO (eg via [OP_LFC](../lfc/bip-limit-fee-contribution.md)).
 
 Reversion modes. For all the following situations, the opcode reverts to its OP_SUCCESS semantics:
 
 1. `numberOfOutputs` is less than 0.
 2. `numberOfAddresses` is less than 0.
-3. `sampleWindowFactor` is anything but a number 0 through 3.
-4. `feeFactor` is less than -1 or more than 16.
 
 Failure modes. For all the following additional situations, the transaction is marked invalid:
 1. If the number of values on the stack after `numberOfAddresses` is popped is less than `numberOfAddresses`.
@@ -97,7 +93,7 @@ Failure modes. For all the following additional situations, the transaction is m
 3. If any output index in the `outputValues` maps to an output whose destination isn't in `addressList`.
 4. If any output index in the `outputValues` does not correspond to an output in the transaction.
 5. If the sum of bitcoin amount values in `outputValues` is greater than the UTXO's value.
-6. If the value of the output minus the sum of all bitcoin amounts in `outputValues` is greater than `maxFeeContribution`.
+6. If the value of the input (minus any fee constraint put on the UTXO by a different opcode) is less than the sum of all bitcoin amounts in `outputValues`.
 7. If the sum of all given OP_CD contributions (from all inputs) for an output is greater than the value of the output.
 
 ### Opcode Example Call
@@ -124,19 +120,13 @@ For some walk-throughs of example transactions, take a look [here](op-cd-example
 
 ## Rationale
 
-These opcodes provide a way to ensure that individual inputs transfer their value to specified addresses, allowing them to send to P2SH and related addresses that have spending constraints. This allows for covenants and prescribed sequences of transactions. 
-
-The ability to limit the fee that an input can contribute sets limits to the amount of funds an attacker can drain from a victim's bitcoin vault. The fee is proportional to a calculation of recent median fee-rates so that a transaction output's maximum fee can scale as the network changes. If median fee rates rise, the owner still wants the ability to place a reasonable fee on the transaction so its spendable in a reasonable amount of time. If the median fee rates go down, the limit also scales down to limit the damage a griefer could do. The assumption is that median fees will scale primarily with change in purchasing power of bitcoin and not with changing network congestion (which might offer an attacker the opportunity to perform a more damaging grief attack).
+This opcode provides a way to ensure that individual inputs transfer their value to specified addresses, allowing them to send to P2SH and related addresses that have spending constraints. This allows for covenants and prescribed sequences of transactions. 
 
 The ability to set the `sampleWindowFactor` to options from 6 blocks to 3000 blocks is to give the owner the ability to choose, basically, how much of a rush they think they might be in. If they are generally going to want transactions to go through quickly during network congestion spikes, they'll want a shorter sample-window so they can set their fee higher. However, this also allows a griefer to set a higher fee during network congestion spikes. A longer sample window would be a more accurate measure of general fee rates, but the limit might not be high enough to allow fast confirmation times during congested network conditions. 
-
-Using a `feeFactor` to specify multiples of powers of two for the fee contribution limit assumes that finer-grained fee limit specification is unnecessary. The feeFactor is a two's compliment number so it can be negative in order to specify fractional multiples if they want to for some reason. 
 
 Note also that this design solves the half-spend problem without restricting things like the number of inputs (as op_ctv does). The half-spend problem is a potential problem with covenants where certain types of constraints have loopholes if multiple outputs with the same constraints are used. For example, if you had a constraint saying "the transaction spending this output must send at least 1 bitcoin to address A", if you spent the outputs individually address A would receive at least 1 bitcoin for each transaction. However, if you create a transaction using multiple outputs with that same constraint, the constraint would be met by sending 1 bitcoin to address A, even if dozens of outputs are used. This would mean an attacker could potentially either steal funds, or maybe just grief the victim by spending those bitcoins as fees. Either way, not ideal. OP_CD solves the half-spend problem by ensuring that the constraints of all outputs are summed up and validated. There is no combination of outputs where the intuitive meaning of the OP_CD constrains would be violated.
 
 OP_CD is defined as a check-and-verify opcode rather than pushing 1 or 0 on the stack because that would conceptually allow the execution of an output's script to be affected by the scripts of other outputs. That would add complexity that is almost certainly unacceptable. As currently defined, the interactions between outputs that OP_CD allows can only result in the transaction being declared invalid, rather than changing any execution behavior of the scripts. 
-
-The `averageFeeRate` is used to calculate the maximum fee contribution of an output rather than the median fee so that a change in the average bytes-per-transaction over time doesn't skew the calculations of fee limits.
 
 The opcode has several cases where it reverts to OP_SUCCESSx semantics (or OP_NOPx semantics in the case of the traditional script version). This is done rather than defining it as failure so that future soft-forks can redefine these semantics.
 
@@ -166,14 +156,6 @@ Because OP_CD requires specifying the output values that each input contributes 
 
 One possible optimization would be to allow omitting an output value in cases where the entire output amount is contributed by that input. This would reduce the overhead of specifying output amounts to 2 bytes for most outputs (1 byte for the index, another to indicate the full value), meaning that it would only make transactions with large numbers of outputs about 7% larger.
 
-#### Theft via fees
+#### Fee griefing and theft via fees
 
-The purpose of the fee limit is to limit the risk of griefing attacks and theft via fees. However, this doesn't fully prevent fee abuse. For example, a miner could purchase some goods with a congestion controlled transaction, and then choose a time during high fees to send the transaction with as high a fee as possible. OP_CD carries the risk that some actors will play dirty like this and extract higher than expected fees in multi-party contracts like this.
-
-Single-party use cases (eg wallet vaults) don't carry as much risk of this, since the user is sending to themselves. However, if a wallet vault's key is stolen, an attacker may use this approach to extract some value from their victim via fees. 
-
-#### Manipulation of the average fee rate
-
-Miners could potentially manipulate the fee rate, for example by sending themselves payments with high fees. This could allow those miners (or those complicit with them) to extract more value from a victim via fees. Doing this would be costly for miners tho, and recouping the cost would require a reasonably large attack (at least hundreds of transactions from victims' wallets for a 6 block sample window, and on the order of hundreds of thousands of transactions for a 3000 block sample window).
-
-Miners who manipulate the average fee rate this way could be vulnerable to fee-sniping. This would either be a deterrent  for miners to do this, or would be pressure for these manipulative miners to cartelize. 
+Any UTXO that uses this opcode should include some kind of fee constraint, like [OP_LFC](../lfc/bip-limit-fee-contribution.md), or it will be susceptible to griefing attacks or theft via fees for an attacker connected with a miner.

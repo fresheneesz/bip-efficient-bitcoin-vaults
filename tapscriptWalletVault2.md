@@ -24,18 +24,19 @@ The first address in a wallet vault would have the following spend paths:
 Key spend-path:    
   spendImmediately(keyA1Sig, keyB1Sig)
 Script spend-path: 
-  spendNormally(signature, outputAddressAssociations)
+  spendNormally(signature, outputAddressAssociations, outputValueContributionMap)
 
 function spendImediately(keyA1Sig, keyB1Sig):
   verify(checkSigs([[keyA1Sig, publicKeyA1_], [keyB1Sig, publicKeyB1_]]) >= 2)
 
-function spendNormally(signature, outputAddressAssociations):
+function spendNormally(signature, outputAddressAssociations, outputValueContributionMap):
   let outputValueMap = {}
   for a in outputAddressAssociations:
     outputValueMap[a.outputId] = [a.address]
   pushOutputStack(intermediateAddress_, outputValueMap)
   pushOutputStack(intermediateAddress_, {-1: publicKeyA2Hash_, publicKeyB2Hash_})
-  constrainDestination([intermediateAddress_], 300 blocks, 512x median fee-rate)
+  constrainDestination([intermediateAddress_], outputValueContributionMap)
+  limitFeeContribution(300 blocks, 512x median fee-rate)
   verify(checkSigs([[signature, publicKeyA1_], [signature, publicKeyB1_]]) >= 1)
 ```
 
@@ -106,9 +107,10 @@ Script spend-path:
   # Push each return addresses onto the output stack for outputs to intermediateAddress_.
   <intermediateAddress, 2, -1, publicKeyA2Hash_, publicKeyB2Hash_> PUSHOUTPUTSTACK
   
-  # Ensure that the input is spent only to intermediateDestination or changeAddress1 with 
-  # a maximum fee of 512 times the 300-block median fee-per-byte.
-  <1, intermediateAddress_, 300 blocks, 512x> CONSTRAINDESTINATION
+  # Ensure that the input is spent only to intermediateDestination or changeAddress1.
+  <1, intermediateAddress_, _, _, _, ...> CONSTRAINDESTINATION
+  # Limit fee to 512 times the 300-block median fee-per-byte.
+  <300 blocks, 512x> LIMITFEECONTRIBUTION
   
   # Require a signature for 1 of the 2 keys.
   <publicKeyA1, _> CHECKSIG

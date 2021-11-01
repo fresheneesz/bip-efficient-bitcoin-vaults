@@ -1,6 +1,6 @@
 # OP_CD Wallet Vault
 
-This is a basic wallet vault script using [OP_CD](bip-constraindestination.md) (without OP_POS or OP_BBV). It has a lot of limitations, but it is simple to understand and it is has fewer limitations than wallet vaults created with op_checktemplateverify. 
+This is a basic wallet vault script using [OP_CD](bip-constraindestination.md) (without OP_POS, OP_BBV, or OP_LFC). It has a lot of limitations, but it is simple to understand and it is has fewer limitations than wallet vaults created with op_checktemplateverify. 
 
 ## Properties
 
@@ -9,7 +9,7 @@ This is a basic wallet vault script using [OP_CD](bip-constraindestination.md) (
 * Can omit the change address: true
 * Can spend change immediately: true
 * Can consolidate inputs: **false**. Each output must be spent to a different intermediate address, after which the outputs can be combined in a single output.
-* Canceling each destination / change send either individually or together are both options: **true**.
+* Canceling each destination / change send either individually or together are both options: true.
 * Finalization time: **5 days + 6 confirmations**. Sending to an address that expects to be able to spend the transaction earlier than this won't work. This is a fundamental limitation of a wallet vault.
 * An attacker that has gained access to keyA can steal funds that are sent to `intermediateAddress_` once sent from the main wallet vault address.
 
@@ -25,15 +25,13 @@ The first address in a wallet vault would have the following spend paths:
 Key spend-path:    
   spendImmediately(keyASig, keyBSig)
 Script spend-path: 
-  spendNormally(keyASig)
+  spendNormally(keyASig, outputValuesMap)
 
 function spendImediately(keyASig, keyBSig):
   verify(checkSigs([[keyASig, publicKeyA1_], [keyBSig, publicKeyB1_]) >= 2)
 
-function spendNormally(keyASig):
-  constrainDestination(
-    [intermediateAddress_, changeAddress_], 300 blocks, 512x median fee-rate
-  )
+function spendNormally(keyASig, outputValuesMap):
+  constrainDestination([intermediateAddress_, changeAddress_], outputValuesMap)
   verify(checkSigs([[keyASig, publicKeyA1_]]) >= 1)
 ```
 
@@ -82,9 +80,8 @@ Key spend-path:
   Aggregated multi-signature for: publicKeyA1, publicKeyB1
 
 Script spend-path:  
-  # Ensure that the input is spent only to intermediateDestination or changeAddress with 
-  # a maximum fee of 512 times the 300-block median fee-per-byte.
-  <2, intermediateAddress_, changeAddress_, 300 blocks, 512x> CONSTRAINDESTINATION
+  # Ensure that the input is spent only to intermediateDestination or changeAddress.
+  <2, intermediateAddress_, changeAddress_, _, _, _, ...> CONSTRAINDESTINATION
   
   # Require a signature for key A.
   <publicKeyA1, _> CHECKSIGVERIFY

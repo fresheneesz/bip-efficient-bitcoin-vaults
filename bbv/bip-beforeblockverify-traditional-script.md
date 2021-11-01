@@ -1,6 +1,6 @@
 # OP_BBV with traditional script
 
-[OP_BBV](bip-beforeblockverify.md) could be less efficiently implemented as a traditional OP_NOPx opcode. This seems no longer necessary to discuss, since Taproot will almost certainly lock in soon.
+[OP_BBV](bip-beforeblockverify.md) could be less efficiently implemented as a traditional OP_NOPx opcode. This seems no longer necessary to discuss, since Taproot has locked in.
 
 ## Specification
 

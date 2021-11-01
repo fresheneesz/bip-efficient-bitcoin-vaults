@@ -23,7 +23,7 @@ Wallet Vault:
 * Can omit the change address: true
 * Can spend change immediately: true
 * Can consolidate inputs: true. Arbitrary number of wallet vault inputs can be spent in the same transaction and send to the same destination/change address. 
-* Canceling each destination / change send either individually or together are both options: **false**. However, in the scenario of an attacker, this ability isn't needed. 
+* Canceling each destination / change send either individually or together are both options: **false**. However, in the scenario of an attack, this ability isn't needed. 
 * Finalization time: **5 days**. Sending to an address that expects to be able to spend the transaction earlier than this won't work. This is a fundamental limitation of a wallet vault.
 
 ## Addresses
@@ -38,12 +38,14 @@ The first address in a wallet vault would have the following spend paths:
 Key spend-path:    
   spendImmediately(keyA1Sig, keyB1Sig, publicKeyA1_, publicKeyB1_)
 Script spend-path: 
-  spendNormally(signature, outputAddressAssociations, 512x median fee-rate)
+  spendNormally(signature, outputAddressAssociations, 512x median fee-rate, 
+                outputValueContributionMap)
 
 function spendImediately(keyA1Sig, keyB1Sig, publicKeyA, publicKeyB):
   verify(checkSigs([[keyA1Sig, publicKeyA], [keyB1Sig, publicKeyB]]) >= 2)
 
-function spendNormally(signature, outputAddressAssociations, maxFee):
+function spendNormally(signature, outputAddressAssociations, maxFee, 
+                       outputValueContributionMap):
   let outputValueMap = {}
   for a in outputAddressAssociations:
     outputValueMap[a.outputId] = [a.address]
@@ -51,7 +53,8 @@ function spendNormally(signature, outputAddressAssociations, maxFee):
   pushOutputStack(
     intermediateAddress_, {-1: [publicKeyA2Hash_, publicKeyB2Hash_]}
   )
-  constrainDestination([intermediateAddress_, changeAddress_], 300 blocks, maxFee)
+  constrainDestination([intermediateAddress_, changeAddress_], output)
+  limitFeeContribution(300 blocks, maxFee)
   verify(checkSigs([[signature, publicKeyA1_], [signature, publicKeyB1_]]) >= 1)
 ```
 
@@ -142,9 +145,10 @@ pseudofunction spendNormally(maxFee, ....., ..., ..., ...):
   <intermediateAddress, 2, -1, publicKeyA2Hash, publicKeyB2Hash>
   PUSHOUTPUTSTACK
   
-  # Ensure that the input is spent only to intermediateAddress or changeAddress with 
-  # a maximum fee of 512 times the 300-block median fee-per-byte.
-  <2, intermediateAddress, changeAddress, 300 blocks, maxFee> CONSTRAINDESTINATION
+  # Ensure that the input is spent only to intermediateAddress or changeAddress.
+  <2, intermediateAddress, changeAddress, _, _, _, ...> CONSTRAINDESTINATION
+  # Limit fee to 512 times the 300-block median fee-per-byte.
+  <300 blocks, maxFee> LIMITFEECONTRIBUTION
   
   # Require a signature for 1 of the 2 keys.
   <publicKeyA1, ...> CHECKSIG

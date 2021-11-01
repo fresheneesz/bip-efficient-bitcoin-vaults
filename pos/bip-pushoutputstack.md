@@ -16,7 +16,7 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
 
 ### Abstract
 
-This BIP proposes a new tapscript opcode, OP_PUSHOUTPUTSTACK, which allows an input's script to pass data onto the script for particular outputs. The extension has applications for efficient bitcoin vaults, among other things. 
+This BIP proposes a new tapscript opcode, OP_PUSHOUTPUTSTACK (*OP_POS for short*), which allows an input's script to pass data onto the script for particular outputs. The extension has applications for efficient bitcoin vaults, among other things. 
 
 This could either be activated using a tapscript OP_SUCCESSx opcode or less efficiently as a traditional OP_NOPx opcode.
 
@@ -31,9 +31,9 @@ The primary motivation for this opcode is to create efficient wallet vaults. Thi
 
 ## Specification
 
-### Option A
+`OP_POS(address, numberOfValues, ...[outputIndex, ...values])`
 
-OP_PUSHOUTPUTSTACK (*OP_POS for short*) redefines opcode OP_SUCCESS_81 (0x51). It pushes items onto the "output stack" for outputs to a particular address. The "output stack" is a stack of data that will be pushed onto the stack after the witness script runs, but before the primary script runs. This allows a script writer to constrain behavior of a chained transaction output with witness data that was used to unlock a covenant input script.
+OP_PUSHOUTPUTSTACK (*OP_POS*) redefines opcode OP_SUCCESS_81 (0x51). It pushes items onto the "output stack" for outputs to a particular address. The "output stack" is a stack of data that will be pushed onto the stack after the witness script runs, but before the primary script runs. This allows a script writer to constrain behavior of a chained transaction output with witness data that was used to unlock a covenant input script.
 
 It does the following:
 
@@ -62,10 +62,6 @@ Failure modes. For all the following situations, the transaction is marked inval
 5. The output corresponding to a given `outputIndex` is not being sent to the given `address`.
 6. Any output sent to the given `address` isn't listed as an `outputIndex` given values in this operation. All outputs to the given `address` must be given values.
 7. If two different inputs push values on an output stack for the same output and after both input scripts are evaluated, the output stacks for that output for each input script are not identical.
-
-### Option B
-
-OP_PUSHOUTPUTSTACK (*OP_POS for short*) redefines opcode OP_NOP6 (0xb5). It does the same as the tapscript version above except that it does not pop stack items and instead of adding the output stack onto the child output's execution stack, it instead requires the `scriptSig` spending the relevant output of the transaction to have particular values on the top of its stack after evaluation. When that UTXO is spent, after evaluation of the UTXO's `scriptSig`, the top three values on the stack are verified to match the "output stack" stored with the UTXO. If they don't match, the transaction is marked invalid.
 
 ## Rationale
 

@@ -1,6 +1,6 @@
 # Wallet Vault 1
 
-This is a basic wallet vault script using the operations OP_POS, OP_CD, and OP_BBV. It has a lot of limitations, but it is simple to understand and it is has fewer limitations than wallet vaults created with op_checktemplateverify.
+This is a basic wallet vault script using the operations OP_POS, OP_CD, OP_BBV, and OP_LFC. It has a lot of limitations, but it is simple to understand and it is has fewer limitations than wallet vaults created with op_checktemplateverify.
 
 ## Properties
 
@@ -9,7 +9,7 @@ This is a basic wallet vault script using the operations OP_POS, OP_CD, and OP_B
 * Can omit the change address: **false**
 * Can spend change immediately: **false**
 * Can consolidate inputs: true. Arbitrary number of wallet vault inputs can be spent in the same transaction and send to the same destination/change address. 
-* Canceling each destination / change send either individually or together are both options: **true**.
+* Canceling each destination / change send either individually or together are both options: true.
 * Finalization time: **5 days**. Sending to an address that expects to be able to spend the transaction earlier than this won't work. This is a fundamental limitation of a wallet vault.
 
 ## Addresses
@@ -24,17 +24,19 @@ The first address in a wallet vault would have the following spend paths:
 Key spend-path:    
   spendImmediately(keyASig, keyBSig)
 Script spend-path: 
-  spendNormally(signature, destinationOutputId, destinationAddress, changeOutputId, changeAddress)
+  spendNormally(signature, destinationOutputId, destinationAddress, sentAmount, changeOutputId, changeAddress, changeAmount)
 
 function spendImediately(keyASig, keyBSig):
   verify(checkSigs([[keyASig, publicKeyA1_], [keyBSig, publicKeyB1_]) >= 2)
 
-function spendNormally(signature, destinationOutputId, destinationAddress, changeOutputId, changeAddress):
+function spendNormally(signature, destinationOutputId, destinationAddress, sentAmount, changeOutputId, changeAddress, changeAmount):
   pushOutputStack(destinationIntermediateAddress_, {destinationOutputId: [destinationAddress]})
   pushOutputStack(changeIntermediateAddress_, {changeOutputId: [changeAddress]})
   constrainDestination(
-    [destinationIntermediateAddress_, changeIntermediateAddress_], 300 blocks, 512x median fee-rate
+    {destinationOutputId: sentAmount, changeOutputId: changeAmount},
+    [destinationIntermediateAddress_, changeIntermediateAddress_]
   )
+  limitFeeContribution(300 blocks, 512x median fee-rate)
   verify(checkSigs([[signature, publicKeyA1_], [signature, publicKeyB1_]]) >= 1)
 ```
 
@@ -96,9 +98,10 @@ Script spend-path:
   # Push the change address onto the output stack for the changeIntermediateAddress_ output.
   <changeAddress1, 1, _, _> PUSHOUTPUTSTACK
   
-  # Ensure that the input is spent only to intermediateDestination or changeAddress1 with 
-  # a maximum fee of 512 times the 300-block median fee-per-byte.
-  <2, destinationIntermediateAddress_, changeAddress1, 300 blocks, 512x> CONSTRAINDESTINATION
+  # Ensure that the input is spent only to intermediateDestination or changeAddress1
+  <2, destinationIntermediateAddress_, changeAddress1, _, _, _, ...> CONSTRAINDESTINATION
+  # Limit fee to 512 times the 300-block median fee-per-byte.
+  <300 blocks, 512x> LIMITFEECONTRIBUTION
   
   # Require a signature for 1 of the 2 keys.
   <publicKeyA1, _> CHECKSIG

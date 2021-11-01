@@ -34,7 +34,7 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
 
 ### Abstract
 
-This BIP proposes a new script opcode, OP_BEFOREBLOCKVERIFY which can be used to mark a spend path only valid before a certain number of blocks after the output was created. The extension has applications for efficient bitcoin vaults, atomic swaps, escrows, among other things. 
+This BIP proposes a new script opcode, OP_BEFOREBLOCKVERIFY  (*OP_BBV for short*) which can be used to mark a spend path only valid before a certain number of blocks after the output was created. The extension has applications for efficient bitcoin vaults, atomic swaps, escrows, among other things. 
 
 This can be activated using a tapscript OP_SUCCESSx opcode.
 
@@ -100,7 +100,9 @@ Admittedly, this application of OP_BBV has not been studied to any depth and is 
 
 ## Specification
 
-OP_BEFOREBLOCKVERIFY (*OP_BBV for short*) redefines opcode OP_SUCCESS_80 (0x50). It does the following:
+`OP_BBV(relativeBlockHeight)`
+
+OP_BEFOREBLOCKVERIFY (*OP_BBV*) redefines opcode OP_SUCCESS_80 (0x50). It does the following:
 
 * Pops the top of the stack and interprets it as `relativeBlockHeight`. `absoluteBlockHeight = UTXO confirmation block + numberOfBlocks`.
 * Then it marks the transaction invalid if the block that the transaction is being evaluated for has a height of greater than or equal to that `absoluteBlockHeight`. This can allow a spend path to expire.
