@@ -30,8 +30,7 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
     + [Fungibility Risks with OP_CD](#fungibility-risks-with-op_cd)
     + [Flexible output value claims](#flexible-output-value-claims)
     + [Overhead for transactions with many outputs](#overhead-for-transactions-with-many-outputs)
-    + [Theft via fees](#theft-via-fees)
-    + [Manipulation of the average fee rate](#manipulation-of-the-average-fee-rate)
+    + [Fee griefing and theft via fees](#fee-griefing-and-theft-via-fees)
 
 ##  Introduction
 
@@ -98,11 +97,9 @@ Failure modes. For all the following additional situations, the transaction is m
 
 ### Opcode Example Call
 
-Given a 300-block `averageFeeRate` of 10 sats/byte, the following is a script that limits the input to being spent to only address `D` and address `C` in outputs 0 (for 24345200 satoshi), 1 (for 329435400 satoshi), and 2 (for 12345 satoshi) with a maximum fee of `10 * 2^5= 320 sats`.
+The following is a script that limits the input to being spent to only address `D` and address `C` in outputs 0 (for 24345200 satoshi), 1 (for 329435400 satoshi), and 2 (for 12345 satoshi).
 
 ```
-5
-2
 C
 D
 2
@@ -121,8 +118,6 @@ For some walk-throughs of example transactions, take a look [here](op-cd-example
 ## Rationale
 
 This opcode provides a way to ensure that individual inputs transfer their value to specified addresses, allowing them to send to P2SH and related addresses that have spending constraints. This allows for covenants and prescribed sequences of transactions. 
-
-The ability to set the `sampleWindowFactor` to options from 6 blocks to 3000 blocks is to give the owner the ability to choose, basically, how much of a rush they think they might be in. If they are generally going to want transactions to go through quickly during network congestion spikes, they'll want a shorter sample-window so they can set their fee higher. However, this also allows a griefer to set a higher fee during network congestion spikes. A longer sample window would be a more accurate measure of general fee rates, but the limit might not be high enough to allow fast confirmation times during congested network conditions. 
 
 Note also that this design solves the half-spend problem without restricting things like the number of inputs (as op_ctv does). The half-spend problem is a potential problem with covenants where certain types of constraints have loopholes if multiple outputs with the same constraints are used. For example, if you had a constraint saying "the transaction spending this output must send at least 1 bitcoin to address A", if you spent the outputs individually address A would receive at least 1 bitcoin for each transaction. However, if you create a transaction using multiple outputs with that same constraint, the constraint would be met by sending 1 bitcoin to address A, even if dozens of outputs are used. This would mean an attacker could potentially either steal funds, or maybe just grief the victim by spending those bitcoins as fees. Either way, not ideal. OP_CD solves the half-spend problem by ensuring that the constraints of all outputs are summed up and validated. There is no combination of outputs where the intuitive meaning of the OP_CD constrains would be violated.
 
