@@ -75,8 +75,8 @@ TBD
 
 OP_CONSTRAINDESTINATION (*OP_CD*) redefines opcode OP_SUCCESS_82 (0x52). The opcode can be used to limit the destinations that an input can contribute to. It does the following: 
 
-3. The top item on the stack is popped and interpreted as a `numberOfAddresses`.
-4. The next few items on the stack, numbering `numberOfAddresses`, are popped and interpreted as the list `addressList`.
+4. The top item on the stack is popped and interpreted as a `numberOfAddresses`.
+2. The next few items on the stack, numbering `numberOfAddresses`, are popped and interpreted as the list `addressList`.
 3. The next item on the stack is popped and interpreted as a `numberOfOutputs`.
 4. The next few items on the stack, numbering `2 * numberOfOutputs`, are popped and interpreted as the map `outputValues` which maps output indexes to an amount of bitcoin sent to that address from the UTXO.  For each pair, the output index appears first, followed by the amount of bitcoin. The "output index" is the index of the output in the tx_out list. 
 5. Once all input scripts have been evaluated, for each output, verify that the amount of bitcoin claimed to have been contributed to that output in all OP_CD calls (from all input) sums to an amount smaller than the that output's value minus any fee constraint on the UTXO (eg via [OP_LFC](../lfc/bip-limit-fee-contribution.md)).
