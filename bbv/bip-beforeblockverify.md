@@ -26,7 +26,7 @@ License: BSD-3-Clause: OSI-approved BSD 3-clause license
 - [Design Tradeoffs and Risks](#design-tradeoffs-and-risks)
     + [Transaction Expiry](#transaction-expiry)
       - [Mempool Handling](#mempool-handling)
-      - [Reorgs](#reorgs)
+      - [Reorg Safety](#reorg-safety)
       - [Spam Risk](#spam-risk)
 - [Copyright](#copyright)
 
