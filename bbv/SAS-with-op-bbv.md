@@ -15,7 +15,7 @@ Using two slightly asymmetric transactions each using timelocks and [OP_BEFOREBL
 
 ## Transaction spend-paths
 
-![SAS](D:\billysFile\IDEAS\Cryptocurrency\bip-efficient-bitcoin-vaults\SAS.png)
+![SAS](SAS.png)
 
 Note that the `bbv(2 days)` in the `Bob Revoke` transaction isn't strictly necessary, since aliceSecret should never be exposed after 1 day, however it is nice to close out the possibility that Alice might leak aliceSecret sometime in the future before she has spent her coins, which could allow Bob to steal her funds. 
 
